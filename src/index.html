@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Chess5</title>
+
+    <script src="https://code.createjs.com/easeljs-0.8.1.min.js"></script>
+    <script src='js/canvas-board.js'></script>
+
+</head>
+<body>
+    <canvas id="myCanvas" style="border:1px solid #000000;"></canvas>
+</body>
+</html>
+<script>
+    var board = new CanvasBoard({
+        canvasId: "myCanvas",
+        canvasSize: 900,
+        blocksInARow: 8,
+        flipDuration: 500,
+        squeezeScaleFactor: 0.7
+    });
+</script>
