@@ -26,72 +26,83 @@
 
 /**
  * @constructor
+ * @param {object} configuration {
+ *  canvasId,           // id of canvas html element                        | string            | mandatory
+ *  canvasSize,         // dimension in px to which the canvas will be set  | integer           | optional - default: min value between width and height of html element
+ *  border,             // dimension in px of board border                  | integer           | optional - default: 3.5% of canvas size. set 0 to remove border
+ *  notation,           // specify if board has blocks labels or not        | boolean           | optional - default: true. if there is no border this parameter is ignored
+ *  blocksInARow,       // number of blocks in a row                        | integer           | optional - default: 8
+ *  type,               // 'linesGrid' or 'blocksGrid'                      | string literal    | optional - default: 'blocksGrid'. if 'linesGrid' then 'lightSquaresColor' is used as background color
+ *  lightSquaresColor,  // color of light squares                           | string            | optional - default: "#EFEFEF"
+ *  darkSquaresColor,   // color of dark squares                            | string            | optional - default: "#ABABAB". ignored if type is 'linesGrid'
+ *  linesColor          // color of lines if type is 'linesGrid'            | string            | optional - default: "#000"
+ *  borderColor,        // color of border                                  | string            | optional - default: "#222"
+ *  shadowColor         // color of border shadow                           | string            | optional - default: "#000"
+ *  labelsColor,        // color of border labels                           | string            | optional - default: "#DDD"
+ *  highlighterColor,   // color to highlight elements                      | string            | optional - default: "lightgreen"
+ *  flipDuration,       // duration of flipping in millisecs                | integer           | optional - default: 500
+ *  squeezeScaleFactor, // rescaling factor of board for flip animation     | number in [0,1]   | optional - default: 0.7
+ *  animationOfPieces,  // specify if pieces movement is animated           | boolean           | optional - default: true
+ *  piecesFolder,       // relative (to html page) path to pieces images    | string            | optional - default: "./img"
+ *  actionsOnPieces,    // specify if enable mouse interaction with pieces  | boolean           | optional - default: true
+ *  blocksBorder,       // dimension in px of blocks border                 | integer or 'auto' | optional - default: 0, no border between blocks. 'auto' set border to 3% of block size
+ *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. board is not optimized for go
+ *  chessGame {         // to define chess peculiar properties              | object            | optional - default: undefined. board is not optimized for chess
+ *      pawnLabel,      // label of pawn, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
+ *      bishopLabel,    // label of bishop, used in filename of piece       | string            | mandatory if chess object is defined. ignored otherwise
+ *      rookLabel       // label of rook, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
+ *  }
+ * }
  */
 function CanvasBoard(configuration) {
-    /*
-     * configuration object as parameter:
-     * {
-     *  canvasId,           // id of canvas html element                        | string            | mandatory
-     *  canvasSize,         // dimension in px to which the canvas will be set  | integer           | optional - default: width property of html element
-     *  border,             // specify if board has border or not               | boolean           | optional - default: true
-     *  blocksInARow,       // number of blocks in a row                        | integer           | optional - default: 8
-     *  lightSquaresColor,  // color of light squares                           | string            | optional - default: "#EFEFEF"
-     *  darkSquaresColor,   // color of dark squares                            | string            | optional - default: "#ABABAB"
-     *  borderColor,        // color of border                                  | string            | optional - default: "#222"
-     *  shadowColor         // color of border shadow                           | string            | optional - default: "#000"
-     *  labelsColor,        // color of border labels                           | string            | optional - default: "#DDD"
-     *  flipDuration,       // duration of flipping in millisecs                | integer           | optional - default: 500
-     *  squeezeScaleFactor  // rescaling factor of board for flip animation     | number in [0,1]   | optional - default: 0.7
-     *  animationOfPieces   // specify if pieces movement is animated           | boolean           | optional - default: true
-     *  piecesFolder        // relative (to html page) path to pieces images    | string            | optional - default: "./img"
-     *  actionsOnPieces     // specify if enabled mouse interaction with pieces | boolean           | optional - default: true
-     *  blocksBorder        // specify if block are delimited by a border       | boolean           | optional - default: false
-     *  blocksBorderSize    // dimension in px of block border                  | integer           | optional - default: 3% of block size
-     * }
-     */
 
     /*
      * Elements stack:
      *   this.stage
      *     |--borderContainer
      *     |    |--border
-     *     |    |--labelsContainer     -> this.containers.labels
+     *     |    |--labelsContainer     -> added to this.containers.labels
      *     |--boardContainer
-     *          |--background           // only if there is space between block
-     *          |--borderBlock          // only on piece pressmove event
+     *          |--background           // exists only if there is space between block
+     *          |--blockHighlighter     // exists only during piece pressmove event
      *          |--blocksContainer
-     *          |--piecesContainer     -> this.containers.pieces
+     *          |--piecesContainer     -> added to this.containers.pieces
      */
 
-    if (!configuration)
-        throw new Error("CanvasBoard: configuration object is mandatory.");
-
     var board = this;
+
+    if (!configuration || !configuration.canvasId)
+        throw new Error("CanvasBoard: configuration object and canvasId property are mandatory.");
+
+    this.canvas = document.getElementById(configuration.canvasId);
+
 
     this.configuration = setConfiguration(configuration);
 
     var borderSize, shadowSize, blockSize, allBlocksSize, paddingSize, blocksBorderSize;
 
-    borderSize = shadowSize = this.configuration.border ? Math.floor(this.configuration.canvasSize * 0.035) : 0; // board border size is 3.5% of canvas size
+    borderSize = shadowSize = this.configuration.border == undefined ? Math.floor(this.configuration.canvasSize * 0.035) : // default board border size is 3.5% of canvas size
+                              this.configuration.border == 0         ? 0
+                                                                     : this.configuration.border;
+    this.configuration.border = borderSize;
 
     var sizeBorderBetweenBlocks = 0;
-    if (this.configuration.blocksBorder) {
-        if (this.configuration.blocksBorderSize > 0) {
-            blocksBorderSize = configuration.blocksBorderSize;
-            blockSize = Math.floor((this.configuration.canvasSize - (borderSize + shadowSize) * 2 - blocksBorderSize * (this.configuration.blocksInARow - 1)) / this.configuration.blocksInARow);
-        } else {
+    if (this.configuration.blocksBorder != 0) {
+        if (this.configuration.blocksBorder == 'auto') {
             var availableSizeForBordersAndBlocks = this.configuration.canvasSize - (borderSize + shadowSize) * 2;
             var unitOfSpace = availableSizeForBordersAndBlocks / (100 * this.configuration.blocksInARow + 3 * (this.configuration.blocksInARow - 1)); // default block border size is 3% of block size
             blockSize = Math.floor(unitOfSpace * 100);
             var availableSizeForBorders = availableSizeForBordersAndBlocks - blockSize * this.configuration.blocksInARow;
             blocksBorderSize = Math.floor(availableSizeForBorders / (this.configuration.blocksInARow - 1));
+        } else {
+            blocksBorderSize = configuration.blocksBorder;
+            blockSize = Math.floor((this.configuration.canvasSize - (borderSize + shadowSize) * 2 - blocksBorderSize * (this.configuration.blocksInARow - 1)) / this.configuration.blocksInARow);
         }
         sizeBorderBetweenBlocks = blocksBorderSize;
     } else {
         blockSize = Math.floor((this.configuration.canvasSize - (borderSize + shadowSize) * 2) / this.configuration.blocksInARow);
-        blocksBorderSize = configuration.blocksBorderSize || blockSize * 0.03; // block border size is 3% of block size // in this case border is used only to enlighten an active block, not for lines in board
+        blocksBorderSize = configuration.blocksBorder || blockSize * 0.03; // block border size is 3% of block size // in this case border is used only to enlighten an active block, not for lines in board
     }
-
 
     allBlocksSize = blockSize * this.configuration.blocksInARow + sizeBorderBetweenBlocks * (this.configuration.blocksInARow - 1);
     paddingSize = (this.configuration.canvasSize - allBlocksSize - (borderSize + shadowSize) * 2) / 2;
@@ -101,8 +112,8 @@ function CanvasBoard(configuration) {
 
     this.stage = new createjs.Stage(this.canvas);
     this.stage.scaleX = this.stage.scaleY = this.stage.scale = 1;
-    this.stage.regX = this.stage.regY = this.canvas.height / 2;
-    this.stage.x = this.stage.y = this.canvas.height / 2;
+    this.stage.regX = this.stage.regY = this.configuration.canvasSize / 2;
+    this.stage.x = this.stage.y = this.configuration.canvasSize / 2;
     this.stage.enableMouseOver(40);
     this.stage.mouseMoveOutside = true;
     this.stage.rotation = 0;
@@ -128,19 +139,20 @@ function CanvasBoard(configuration) {
 
         borderContainer.addChild(border);
 
-        this.containers.labels = new createjs.Container();
-        var fontSize = Math.floor(borderSize * 0.6);
-        addLabelsToContainer(this.containers.labels, fontSize, "V");
-        addLabelsToContainer(this.containers.labels, fontSize, "H");
+        if (this.configuration.notation) {
+            this.containers.labels = new createjs.Container();
+            var labelSize = Math.min(Math.floor(borderSize * 0.6), this.blockSize);
+            addLabelsToContainer(this.containers.labels, labelSize, "V");
+            addLabelsToContainer(this.containers.labels, labelSize, "H");
 
-        borderContainer.addChild(this.containers.labels);
-
+            borderContainer.addChild(this.containers.labels);
+        }
         this.stage.addChild(borderContainer);
     }
     
     var boardContainer = new createjs.Container();
     boardContainer.regX = boardContainer.regY = allBlocksSize / 2;
-    boardContainer.x = boardContainer.y = this.canvas.height / 2;
+    boardContainer.x = boardContainer.y = this.configuration.canvasSize / 2;
     boardContainer.scaleX = boardContainer.scaleY = boardContainer.scale = 1;
     boardContainer.name = "boardContainer";
 
@@ -160,6 +172,10 @@ function CanvasBoard(configuration) {
         block.x = columnOfBlock * (blockSize + sizeBorderBetweenBlocks) + blockSize / 2;
         block.y = (this.configuration.blocksInARow - rowOfBlock - 1) * (blockSize + sizeBorderBetweenBlocks) + blockSize / 2; // the coord y==0 is at the top, but row 0 is at the bottom
         block.regY = block.regX = blockSize / 2;
+
+        if (board.configuration.type == 'linesGrid') {
+            drawBlockLines(block, blockSize, blocksBorderSize, this.configuration.linesColor, this.configuration.blocksInARow, columnOfBlock, rowOfBlock, this.configuration.goGame);
+        }
 
         blocksContainer.addChild(block);
     }
@@ -201,7 +217,7 @@ function CanvasBoard(configuration) {
 
             animationOfPieces = board.configuration.animationOfPieces;
 
-        return (function tickHandler(event) {
+        return (function(event) {
 
             if (createjs.Ticker.getPaused()) {
                 return;
@@ -215,23 +231,21 @@ function CanvasBoard(configuration) {
             if (this.rotationDegrees) { // if there is a property with degrees of rotation then rotate the board
 
                 if (!squeezedBoard || enlargeBoard) { // do rescalation
-                    if (squeezeFirstTick) { // initialization of squeezing
-                        rescalationCurrentValue = 0;
-                        rescalationTargetScale = rescalationConfiguration;
-                        previousScale = this.stage.scaleX;
-                        rescalationAmount = this.stage.scaleX * rescalationTargetScale - this.stage.scaleX;
-                        rescalationMultiplier = rescalationAmount / rescalationExecutionTime;
 
-                        squeezeFirstTick = false; // condition to stop initialization
+                    if (squeezeFirstTick) {
+                        rescalationTargetScale = rescalationConfiguration;
                     }
 
-                    if (enlargeFirstTick) { // initialization of enlarging
-                        rescalationCurrentValue = 0;
+                    if (enlargeFirstTick) {
                         rescalationTargetScale = previousScale / this.stage.scaleX; // TODO oppure settare uguale a dim max se board storta
+                    }
+
+                    if (squeezeFirstTick || enlargeFirstTick) { // initialization of squeezing
+                        rescalationCurrentValue = 0;
                         previousScale = this.stage.scaleX;
                         rescalationAmount = this.stage.scaleX * rescalationTargetScale - this.stage.scaleX;
                         rescalationMultiplier = rescalationAmount / rescalationExecutionTime;
-
+                        squeezeFirstTick = false; // condition to stop initialization
                         enlargeFirstTick = false; // condition to stop initialization
                     }
 
@@ -240,17 +254,19 @@ function CanvasBoard(configuration) {
                         this.stage.scaleX = this.stage.scaleY = previousScale * rescalationTargetScale; // set exact value
 
                         if (!squeezedBoard) {
+                            squeezedBoard = true; // stop squeezing condition
                             turnsBoard = true; // next step condition
                             turnsFirstTick = true; // next step condition
-                            squeezedBoard = true; // stop squeezing condition
                         }
+
                         if (enlargeBoard) {
-                            squeezedBoard = false; // next step condition
-                            squeezeFirstTick = true; // condition for restart
-                            delete this.rotationDegrees; // condition for restart
                             enlargeBoard = false; // stop enlarging condition
+                            squeezedBoard = false; // next step condition
+                            squeezeFirstTick = true; // next step condition
+                            delete this.rotationDegrees; // next step condition
                         }
-                    } else {
+
+                    } else { // rescale
                         var amountForThisStep = event.delta * rescalationMultiplier;
                         rescalationCurrentValue += amountForThisStep;
                         this.stage.scaleX = this.stage.scaleY += amountForThisStep;
@@ -286,6 +302,8 @@ function CanvasBoard(configuration) {
 
                         elementMultiplier = elementRotation / turnsExecutionTime;
 
+                        elementTargetRotation = ((elementRotation % 360) + 360) % 360; // for negative numbers
+
                         for (var element in this.containers) {
                             if (this.containers.hasOwnProperty(element)) {
                                 for (var i = 0; i < this.containers[element].getNumChildren(); i++) {
@@ -293,8 +311,6 @@ function CanvasBoard(configuration) {
                                 }
                             }
                         }
-
-                        elementTargetRotation = ((elementRotation % 360) + 360) % 360; // for negative numbers
 
                         turnsFirstTick = false; // condition to stop initialization
                     }
@@ -306,7 +322,7 @@ function CanvasBoard(configuration) {
                     for (var element in this.containers) {
                         if (this.containers.hasOwnProperty(element)) {
                             for (var i = 0; i < this.containers[element].getNumChildren(); i++) {
-                                var amountForThisStep = event.delta * elementMultiplier;
+                                amountForThisStep = event.delta * elementMultiplier;
                                 this.containers[element].getChildAt(i).rotation += amountForThisStep;
                             }
                         }
@@ -345,6 +361,10 @@ function CanvasBoard(configuration) {
                     var distY = ((this.configuration.blocksInARow - move.destRank - 1) * (this.blockSize + this.sizeBorderBetweenBlocks) + this.blockSize / 2 - move.piece.y);
 
                     if (animationOfPieces) {
+                        if (move.piece.file != undefined || move.piece.rank != undefined) {
+                            move.piece.file = undefined;
+                            move.piece.rank = undefined;
+                        }
                         this.listOfMovements[i].piece.x += distX * 0.2;
                         this.listOfMovements[i].piece.y += distY * 0.2;
                     }
@@ -379,27 +399,38 @@ function CanvasBoard(configuration) {
         return {
             canvasId            : configuration.canvasId,
             canvasSize          : configuration.canvasSize                          || (this.canvas.width < this.canvas.height ? this.canvas.width : this.canvas.height),
-            border              : configuration.border == false ? false              : true,
+            border              : configuration.border,
+            notation            : configuration.notation !== false,
             blocksInARow        : configuration.blocksInARow                        || 8,
+            type                : configuration.type === 'linesGrid' ? 'linesGrid'   : 'blocksGrid',
             lightSquaresColor   : configuration.lightSquaresColor                   || "#EFEFEF",
             darkSquaresColor    : configuration.darkSquaresColor                    || "#ABABAB",
+            linesColor          : configuration.linesColor                          || "#000",
             borderColor         : configuration.borderColor                         || "#222",
             shadowColor         : configuration.shadowColor                         || "#000",
             labelsColor         : configuration.labelsColor                         || "#DDD",
+            highlighterColor    : configuration.highlighterColor                    || "lightgreen",
             flipDuration        : configuration.flipDuration                        || 500,
             squeezeScaleFactor  : configuration.squeezeScaleFactor                  || 0.7,
-            animationOfPieces   : configuration.animationOfPieces == false ? false   : true,
+            animationOfPieces   : configuration.animationOfPieces !== false,
             piecesFolder        : configuration.piecesFolder                        || "./img",
-            actionsOnPieces     : configuration.actionsOnPieces == false ? false     : true,
-            blocksBorder        : configuration.blocksBorder == true                || false,
-            blocksBorderSize    : configuration.blocksBorderSize                    || undefined
+            actionsOnPieces     : configuration.actionsOnPieces !== false,
+            blocksBorder        : configuration.blocksBorder                        || 0,
+            goGame              : configuration.goGame === true,
+            chessGame           : configuration.chessGame
         }
     }
 
-    function addLabelsToContainer(container, fontSize, orientation) {
+    function addLabelsToContainer(container, labelSize, orientation) {
 
         var labelsArray = [];
+
+        var charsInLabel = Math.ceil(Math.log(board.configuration.blocksInARow+1) / Math.log(10));
+        var fontSize = labelSize / charsInLabel;
+
         if (orientation == "V") {
+
+
             for (var i = board.configuration.blocksInARow; i>0; i--) {
                 labelsArray.push(i);
             }
@@ -428,12 +459,13 @@ function CanvasBoard(configuration) {
             var floatingCoord = borderSize + i * (blockSize + sizeBorderBetweenBlocks) + blockSize / 2 + shadowSize + paddingSize;
 
             label.x = orientation == "H" ? floatingCoord : fixedCoord;
-            label.y = orientation == "H" ? fixedCoord : floatingCoord;
+            label.y = orientation == "H" ? fixedCoord    : floatingCoord;
 
             var otherSideCoord = borderSize / 2 + allBlocksSize + borderSize + shadowSize + paddingSize;
 
             var clonedLabel = label.clone();
-            orientation == "H" ? clonedLabel.y = otherSideCoord : clonedLabel.x = otherSideCoord;
+            orientation == "H" ? clonedLabel.y = otherSideCoord :
+                                 clonedLabel.x = otherSideCoord;
 
             container.addChild(label);
             container.addChild(clonedLabel);
@@ -442,16 +474,94 @@ function CanvasBoard(configuration) {
 
     function getBlockColour(columnIndex, rowIndex) {
         var backColor;
-        if (rowIndex % 2)
-            backColor = (columnIndex % 2 ? board.configuration.darkSquaresColor : board.configuration.lightSquaresColor);
-        else
-            backColor = (columnIndex % 2 ? board.configuration.lightSquaresColor : board.configuration.darkSquaresColor);
+        if (board.configuration.type == 'linesGrid') {
+            backColor = board.configuration.lightSquaresColor;
+        } else {
+            if (rowIndex % 2)
+                backColor = (columnIndex % 2 ? board.configuration.darkSquaresColor : board.configuration.lightSquaresColor);
+            else
+                backColor = (columnIndex % 2 ? board.configuration.lightSquaresColor : board.configuration.darkSquaresColor);
+        }
         return backColor;
     }
-};
+
+    function drawBlockLines(block, blockSize, blockBorderSize, lineColor, blocksInARow, columnOfBlock, rowOfBlock, goGame) {
+
+        var blockGraphic = block.graphics;
+
+        blockGraphic.beginStroke(lineColor)
+            .setStrokeStyle(blockBorderSize);
+
+        if (columnOfBlock !== 0) {
+            blockGraphic
+                .moveTo(blockSize/2, blockSize/2)
+                .lineTo(0, blockSize/2)
+        }
+        if (columnOfBlock != blocksInARow - 1) {
+            blockGraphic
+                .moveTo(blockSize/2, blockSize/2)
+                .lineTo(blockSize, blockSize/2)
+        }
+        if (rowOfBlock !== 0) {
+            blockGraphic
+                .moveTo(blockSize/2, blockSize/2)
+                .lineTo(blockSize/2, blockSize)
+        }
+        if (rowOfBlock != blocksInARow - 1) {
+            blockGraphic
+                .moveTo(blockSize/2, blockSize/2)
+                .lineTo(blockSize/2, 0)
+        }
+
+        if (goGame) {
+            if (blocksInARow % 2 !== 0 && columnOfBlock == Math.floor(blocksInARow/2) && rowOfBlock == Math.floor(blocksInARow/2)) {
+                drawCircle();
+            }
+            if (blocksInARow >= 9 && blocksInARow < 13) {
+                if (((columnOfBlock == 2) || (blocksInARow - columnOfBlock == 3)) && ((rowOfBlock == 2) || (blocksInARow - rowOfBlock == 3))) {
+                    drawCircle();
+                }
+            }
+            if (blocksInARow >= 13) {
+                if (((columnOfBlock == 3) || (blocksInARow - columnOfBlock == 4)) && ((rowOfBlock == 3) || (blocksInARow - rowOfBlock == 4))) {
+                    drawCircle();
+                }
+            }
+            if (blocksInARow == 19) {
+                if (((columnOfBlock == 3 || (blocksInARow - columnOfBlock == 4)) && rowOfBlock == Math.floor(blocksInARow/2)) || ((rowOfBlock == 3 || (blocksInARow - rowOfBlock == 4)) && columnOfBlock == Math.floor(blocksInARow/2))) {
+                    drawCircle();
+                }
+            }
+        }
+
+        function drawCircle() {
+            blockGraphic
+                .moveTo(blockSize/2, blockSize/2)
+                .beginFill(lineColor)
+                .drawCircle(blockSize/2, blockSize/2, blockBorderSize*2.5);
+        }
+    }
+}
 
 CanvasBoard.prototype.rotate = function (degrees) {
     this.rotationDegrees = degrees || 180;
+};
+
+CanvasBoard.prototype.setRotation = function (degrees) {
+
+    this.stage.rotation = ((degrees % 360) + 360) % 360; // to make destination in [0, 360]
+
+    var elementRotation = Math.floor(((this.stage.rotation + 45) % 360) / 90) * -90;
+
+    for (var element in this.containers) {
+        if (this.containers.hasOwnProperty(element)) {
+            for (var i = 0; i < this.containers[element].getNumChildren(); i++) {
+                this.containers[element].getChildAt(i).rotation = (elementRotation) % 360;
+            }
+        }
+    }
+
+    this.update = true;
 };
 
 CanvasBoard.prototype.scale = function (scaleFactor) {
@@ -543,18 +653,18 @@ CanvasBoard.prototype.setPosition = function  (position) {
                             var alternativePiece = this.containers.pieces.getChildAt(k);
                             if (newBoard[i][j] == alternativePiece.label && assignedPieces.indexOf(alternativePiece) == -1) { // search for a piece for a more consistent movement
                                 var alternativeDistance = 0;
-                                if (this.configuration.chess) {
-                                    if (alternativePiece.label.toUpperCase() == this.configuration.chess.bishopLabel.toUpperCase()) {
+                                if (this.configuration.chessGame) {
+                                    if (alternativePiece.label.toUpperCase() == this.configuration.chessGame.bishopLabel.toUpperCase()) {
                                         if (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2))
                                             piece = alternativePiece;
                                         else if ((((alternativePiece.rank + alternativePiece.file) % 2 != (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) || (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 == (i + j) % 2)))
                                             alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                    } else if (alternativePiece.label.toUpperCase() == this.configuration.chess.rookLabel.toUpperCase()) {
+                                    } else if (alternativePiece.label.toUpperCase() == this.configuration.chessGame.rookLabel.toUpperCase()) {
                                         if ((alternativePiece.file == i || alternativePiece.rank == j) && !(piece.file == i || piece.rank == j))
                                             piece = alternativePiece;
                                         else
                                             alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                    } else if (alternativePiece.label.toUpperCase() == this.configuration.chess.pawnLabel.toUpperCase()) {
+                                    } else if (alternativePiece.label.toUpperCase() == this.configuration.chessGame.pawnLabel.toUpperCase()) {
                                         if (alternativePiece.file == i && piece.file != i)
                                             piece = alternativePiece;
                                         else if ((alternativePiece.file == i && piece.file == i) || (alternativePiece.file != i && piece.file != i))
@@ -681,8 +791,8 @@ CanvasBoard.prototype.setPosition = function  (position) {
                 var boardContainer = this.stage.getChildByName("boardContainer");
                 var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                var file = Math.floor(pt.x / (this.blockSize + this.sizeBorderBetweenBlocks));
-                var rank = (this.configuration.blocksInARow - Math.floor(pt.y / (this.blockSize + this.sizeBorderBetweenBlocks)) - 1);
+                var file = Math.floor((pt.x + (this.sizeBorderBetweenBlocks/2)) / (this.blockSize + this.sizeBorderBetweenBlocks));
+                var rank = (this.configuration.blocksInARow - Math.floor((pt.y + (this.sizeBorderBetweenBlocks/2)) / (this.blockSize + this.sizeBorderBetweenBlocks)) - 1);
 
                 piece.x = pt.x;
                 piece.y = pt.y;
@@ -691,24 +801,37 @@ CanvasBoard.prototype.setPosition = function  (position) {
                 if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInARow)
                     currentSquare = file + this.configuration.blocksInARow * rank;
 
-                if (currentSquare != piece.actualSquare) {
-                    boardContainer.removeChild(boardContainer.getChildByName("borderBlock"));
-                    if (currentSquare) {
-                        piece.actualSquare = currentSquare;
-                        var border = new createjs.Shape();
-                        border.graphics.beginStroke("black")
-                            .setStrokeStyle(this.blockBorderSize)
-                            .drawRect(
-                                (this.blockSize + this.sizeBorderBetweenBlocks) * (piece.actualSquare % this.configuration.blocksInARow) + this.blockBorderSize / 2,
-                                (this.blockSize + this.sizeBorderBetweenBlocks) * (this.configuration.blocksInARow - Math.floor(piece.actualSquare / this.configuration.blocksInARow) - 1) + this.blockBorderSize / 2,
-                                this.blockSize - this.blockBorderSize,
-                                this.blockSize - this.blockBorderSize);
-                        border.name = "borderBlock";
+                if (currentSquare != piece.currentSquare) {
+                    boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+                    piece.currentSquare = currentSquare;
+                    if (currentSquare != undefined) {
+                        if (this.configuration.type == 'linesGrid') {
+                            var blockHighlighter = new createjs.Shape();
+                            blockHighlighter.alpha = 0.8;
+                            blockHighlighter.graphics
+                                .beginFill(this.configuration.highlighterColor)
+                                .drawCircle(
+                                    (this.blockSize + this.sizeBorderBetweenBlocks) * (piece.currentSquare % this.configuration.blocksInARow) + this.blockSize / 2,
+                                    (this.blockSize + this.sizeBorderBetweenBlocks) * (this.configuration.blocksInARow - Math.floor(piece.currentSquare / this.configuration.blocksInARow) - 1) + this.blockSize / 2,
+                                    this.blockBorderSize*2.5);
+
+                            blockHighlighter.name = "blockHighlighter";
+                        } else {
+                            var blockHighlighter = new createjs.Shape();
+                            blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
+                                .setStrokeStyle(this.blockBorderSize)
+                                .drawRect(
+                                    (this.blockSize + this.sizeBorderBetweenBlocks) * (piece.currentSquare % this.configuration.blocksInARow) + this.blockBorderSize / 2,
+                                    (this.blockSize + this.sizeBorderBetweenBlocks) * (this.configuration.blocksInARow - Math.floor(piece.currentSquare / this.configuration.blocksInARow) - 1) + this.blockBorderSize / 2,
+                                    this.blockSize - this.blockBorderSize,
+                                    this.blockSize - this.blockBorderSize);
+                            blockHighlighter.name = "blockHighlighter";
+                        }
 
                         if (this.sizeBorderBetweenBlocks > 0)
-                            boardContainer.addChildAt(border, 2);
+                            boardContainer.addChildAt(blockHighlighter, 2);
                         else
-                            boardContainer.addChildAt(border, 1);
+                            boardContainer.addChildAt(blockHighlighter, 1);
                     }
                 }
 
@@ -723,7 +846,7 @@ CanvasBoard.prototype.setPosition = function  (position) {
                 var file = Math.floor(pt.x / (this.blockSize + this.sizeBorderBetweenBlocks));
                 var rank = (this.configuration.blocksInARow - Math.floor(pt.y / (this.blockSize + this.sizeBorderBetweenBlocks)) - 1);
 
-                boardContainer.removeChild(boardContainer.getChildByName("borderBlock"));
+                boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
 
                 var currentSquare = undefined;
                 if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInARow)
@@ -800,4 +923,12 @@ CanvasBoard.prototype.getPosition = function () {
 
 CanvasBoard.prototype.move = function(sourceFile, sourceRank, destFile, destRank) {
     return true;
+};
+
+CanvasBoard.prototype.setPieceAtPosition = function(piece, position) {
+
+};
+
+CanvasBoard.prototype.getPieceAtPosition = function(piece, position) {
+
 };
