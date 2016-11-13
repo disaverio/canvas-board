@@ -9,13 +9,18 @@
 
 </head>
 <body>
-    <canvas id="myCanvas" style="border:1px solid #000000;"></canvas>
+    <canvas id="myCanvas" style="margin-left: auto; margin-right: auto;"></canvas>
 </body>
 </html>
 <script>
     var board = new CanvasBoard({
         canvasId: "myCanvas",
         canvasSize: 900,
+        borderColor: "#000",
+        labelsColor: "#FFF",
+        lightSquaresColor: "#f2b06d",
+        blocksMargin: 'auto',
+        //type: "linesGrid",
         blocksInARow: 8,
         flipDuration: 500,
         squeezeScaleFactor: 0.7
