@@ -3,28 +3,41 @@
 <head>
     <meta charset="utf-8">
     <title>Chess5</title>
-
+    <!--
     <script src="../lib/easeljs-0.8.2.min.js"></script>
     <script src='js/canvas-board.js'></script>
-
+    -->
 </head>
 <body>
     <canvas id="myCanvas" style="margin-left: auto; margin-right: auto;"></canvas>
 </body>
 </html>
+<script src="../bower_components/requirejs/require.js"></script>
 <script>
-    var board = new CanvasBoard({
-        canvasId: "myCanvas",
-        canvasSize: 900,
-        borderColor: "#000",
-        labelsColor: "#FFF",
-        lightSquaresColor: "#f2b06d",
-        marginColor: "red",
-        blocksMargin: 'auto',
-        //type: "linesGrid",
-        blocksInARow: 8,
-        flipDuration: 500,
-        squeezeScaleFactor: 0.7,
-        //goGame: true
+    require.config({
+        paths: {
+            createjs: '../bower_components/create-js/EaselJS/lib/easeljs-0.8.2.min',
+            canvasBoard: 'js/canvas-board'
+        },
+        shim: {
+            createjs: { exports: 'createjs' }
+        }
+    });
+    var board; // exposed to global scope for test purposes
+    require(["canvasBoard"], function(canvasBoard){
+        board = new canvasBoard({
+            canvasId: "myCanvas",
+            canvasSize: 900,
+            borderColor: "#000",
+            labelsColor: "#FFF",
+            lightSquaresColor: "#f2b06d",
+            marginColor: "red",
+            blocksMargin: 'auto',
+            //type: "linesGrid",
+            blocksInARow: 8,
+            flipDuration: 500,
+            squeezeScaleFactor: 0.7,
+            //goGame: true
+        });
     });
 </script>

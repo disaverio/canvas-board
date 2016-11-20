@@ -25,10 +25,10 @@
 "use strict";
 
 (function(global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-    typeof define === 'function' && define.amd                   ? define(factory) :
-                                                                   global.CanvasBoard = factory();
-})(this, function() {
+    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require("createjs")) :
+    typeof define === 'function' && define.amd                   ? define(["createjs"], factory) :
+                                                                   global.CanvasBoard = factory(global.createjs);
+})(this, function(createjs, undefined) {
 
     // private members
     var _stage, _canvas, _blockSize, _allBlocksSize, _highlighterSize, _blocksMargin, _configuration,
@@ -41,23 +41,24 @@
         _alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     /*
-     * Lightweight Q-like reimplementation from scratch of Promises
+     * Lightweight Q-like reimplementation from scratch of Promises.
+     * Chaining supported.
      */
     var customQ = {
         defer: function() {
             return {
                 promise: {
+                    id: "lQ",
                     status: 0, // 0: running - 1: resolved - 2: rejected
                     value: undefined,
-                    thenFunctions: [],
-                    catchFunctions: [],
+                    successorDeferred: [],
                     then: function(f) {
                         var innerDeferred = customQ.defer();
-                        innerDeferred.promise.catchFunctions = this.catchFunctions;
-                        var functionContainer = (function(value) {
+                        innerDeferred.type = "THEN";
+                        var functionContainer = function(value) {
                             try {
                                 var res = f(value);
-                                if (res && res instanceof this.constructor) {
+                                if (res && res.id ==="lQ") {
                                     res.then(function(response) {
                                         innerDeferred.resolve(response);
                                     }).catch(function(error) {
@@ -69,10 +70,11 @@
                             } catch (error) {
                                 innerDeferred.reject(error);
                             }
-                        }).bind(this);
+                        };
 
                         if (this.status == 0) {
-                            this.thenFunctions.push(functionContainer);
+                            innerDeferred.f = functionContainer;
+                            this.successorDeferred.push(innerDeferred);
                         } else if (this.status == 1) {
                             functionContainer(this.value);
                         }
@@ -80,25 +82,69 @@
                         return innerDeferred.promise;
                     },
                     catch: function(f) {
+                        var innerDeferred = customQ.defer();
+                        innerDeferred.type = "CATCH";
+                        var functionContainer = function(value) {
+                            try {
+                                var res = f(value);
+                                if (res && res.id ==="lQ") {
+                                    res.then(function(response) {
+                                        innerDeferred.resolve(response);
+                                    }).catch(function(error) {
+                                        innerDeferred.reject(error);
+                                    });
+                                } else {
+                                    innerDeferred.resolve(res);
+                                }
+                            } catch (error) {
+                                innerDeferred.reject(error);
+                            }
+                        };
+
                         if (this.status == 0) {
-                            this.catchFunctions.push(f);
+                            innerDeferred.f = functionContainer;
+                            this.successorDeferred.push(innerDeferred);
                         } else if (this.status == 2) {
-                            f(this.value);
+                            functionContainer(this.value);
                         }
+
+                        return innerDeferred.promise;
+                    },
+                    finally: function(f) {
+                        this.successorDeferred.push(f);
                     }
                 },
                 resolve: function(result) {
                     this.promise.status = 1;
                     this.promise.value = result;
-                    while (this.promise.thenFunctions.length > 0) {
-                        this.promise.thenFunctions.splice(0, 1)[0](result);
+                    while (this.promise.successorDeferred.length > 0) {
+                        var currentDeferred = this.promise.successorDeferred.splice(0, 1)[0];
+                        if (currentDeferred.exec) {
+                            currentDeferred.exec(this.promise.status, result);
+                        } else {
+                            currentDeferred(result);
+                        }
                     }
                 },
                 reject: function(error) {
                     this.promise.status = 2;
                     this.promise.value = error;
-                    while (this.promise.catchFunctions.length > 0) {
-                        this.promise.catchFunctions.splice(0, 1)[0](error);
+                    while (this.promise.successorDeferred.length > 0) {
+                        var currentDeferred = this.promise.successorDeferred.splice(0, 1)[0];
+                        if (currentDeferred.exec) {
+                            currentDeferred.exec(this.promise.status, error);
+                        } else {
+                            currentDeferred(error);
+                        }
+                    }
+                },
+                exec: function(status, response) {
+                    if (status == 1 && this.type == "THEN" || status == 2 && this.type == "CATCH") {
+                        this.f(response);
+                    } else {
+                        while (this.promise.successorDeferred.length > 0) {
+                            this.promise.successorDeferred.splice(0, 1)[0].exec(status, response);
+                        }
                     }
                 }
             };
@@ -146,6 +192,31 @@
         label += (rank+1);
 
         return label;
+    }
+
+    function _getXYCoordsFromFileRank(file, rank) {
+        var xCoord = file * (_blockSize + _blocksMargin) + _blockSize / 2;
+        var yCoord = (_configuration.blocksInARow - rank - 1) * (_blockSize + _blocksMargin) + _blockSize / 2;
+
+        return {
+            x: xCoord,
+            y: yCoord
+        };
+    }
+
+    function _getFileRankFromXYCoords(x, y) {
+        var file = Math.floor((x + (_blocksMargin / 2)) / (_blockSize + _blocksMargin));
+        var rank = (_configuration.blocksInARow - Math.floor((y + (_blocksMargin / 2)) / (_blockSize + _blocksMargin)) - 1);
+
+        return {
+            file: file,
+            rank: rank
+        };
+    }
+
+    function _getXYCoordsFromPositionLabel(positionLabel) {
+        var numericPosition = _getFileRankFromPositionLabel(positionLabel);
+        return _getXYCoordsFromFileRank(numericPosition.file, numericPosition.rank);
     }
 
     function _isArray(object) {
@@ -206,17 +277,17 @@
 
     /**
      * @constructor
-     * @param {object} configuration {
+     * @param {Object} configuration {
      *  canvasId,           // id of canvas html element                        | string            | mandatory
-     *  type,               // 'linesGrid' or 'blocksGrid'                      | string literal    | optional - default: 'blocksGrid'. if 'linesGrid' then 'lightSquaresColor' is used as background color
      *
-     *  canvasSize,         // dimension in px to which the canvas will be set  | integer           | optional - default: min value between width and height of html element
-     *  borderSize,         // dimension in px of board border                  | integer           | optional - default: 3.5% of canvas size. set to 0 to remove border
-     *  gridLinesSize,      // dimension in px of lines for 'linesGrid' type    | integer           | optional - default: 3% of block size. ignored if type != 'linesGrid'
-
-     *  coords,             // specify if board has blocks coords or not        | boolean           | optional - default: true. if there is no border this parameter is ignored
+     *  type,               // 'linesGrid' or 'blocksGrid'                      | string literal    | optional - default: 'blocksGrid'. if 'linesGrid' then 'lightSquaresColor' is used as background color
      *  blocksInARow,       // number of blocks in a row                        | integer           | optional - default: 8
-
+     *
+     *  canvasSize,         // dimension in px to which the canvas will be set  | integer           | optional - default: min value between width and height of html canvas element
+     *  borderSize,         // dimension in px of board border                  | integer           | optional - default: 3.5% of canvas size. set to 0 to remove border
+     *  blocksMargin,       // dimension in px of margin between blocks         | integer or 'auto' | optional - default: 0, no margin between blocks. 'auto' set margin to 3% of block size
+     *  gridLinesSize,      // dimension in px of lines for 'linesGrid' type    | integer           | optional - default: 3% of block size. ignored if type != 'linesGrid'
+     *
      *  lightSquaresColor,  // color of light squares                           | string            | optional - default: "#EFEFEF"
      *  darkSquaresColor,   // color of dark squares                            | string            | optional - default: "#ABABAB". ignored if type is 'linesGrid'
      *  linesColor,         // color of lines if type is 'linesGrid'            | string            | optional - default: "#000"
@@ -226,19 +297,22 @@
      *  highlighterColor,   // color to highlight elements                      | string            | optional - default: "lightgreen"
      *  marginColor,        // color of margin between blocks                   | string            | optional - default: 3% of block size. ignored if type != 'linesGrid'
      *
-     *  flipDuration,       // duration of flipping in millisecs                | integer           | optional - default: 500
+     *  coords,             // specify if board has blocks coords labels        | boolean           | optional - default: true. if there is no border this parameter is ignored
+     *
+     *  rotationDuration,   // duration of flipping in millisecs                | integer           | optional - default: 500
      *  squeezeScaleFactor, // rescaling factor of board for flip animation     | number in [0,1]   | optional - default: 0.7
      *  animationOfPieces,  // specify if pieces movement is animated           | boolean           | optional - default: true
+     *  actionsOnPieces,    // specify if enabled mouse interaction with pieces | boolean           | optional - default: true
+     *
      *  piecesFolder,       // relative (to html page) path to pieces images    | string            | optional - default: "./img"
-     *  actionsOnPieces,    // specify if enable mouse interaction with pieces  | boolean           | optional - default: true
-     *  blocksMargin,       // dimension in px of margin between blocks         | integer or 'auto' | optional - default: 0, no margin between blocks. 'auto' set margin to 3% of block size
+     *
      *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. if true type is automatically set to 'linesGrid'
-     *  chessGame: {        // to define chess peculiar properties              | object            | optional - default: undefined. board is not optimized for chess
+     *  chessGame: {        // to define properties for chess optimization      | object            | optional - default: undefined. board is not optimized for chess
      *      pawnLabel,      // label of pawn, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
      *      bishopLabel,    // label of bishop, used in filename of piece       | string            | mandatory if chess object is defined. ignored otherwise
      *      rookLabel       // label of rook, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
      *  }
-     * }]
+     * }
      */
     function CanvasBoard(configuration) {
 
@@ -268,7 +342,7 @@
         this.configuration.canvasSize = this.configuration.canvasSize || (_canvas.width < _canvas.height ? _canvas.width : _canvas.height);
         this.configuration.borderSize =
             this.configuration.borderSize === undefined ? Math.floor(this.configuration.canvasSize * 0.035) // default board border size is 3.5% of canvas size
-                                                        : this.configuration.borderSize;
+                : this.configuration.borderSize;
 
         var blockSize, allBlocksSize, boardPaddingSize, highlighterBlockBorderSize,
             borderSize = this.configuration.borderSize,
@@ -389,7 +463,7 @@
 
         var tickHandler = ((function () {
 
-            var flipDuration = this.configuration.flipDuration,
+            var rotationDuration = this.configuration.rotationDuration,
 
                 squeezedBoard = false,
                 turnsBoard = false,
@@ -401,12 +475,12 @@
 
                 rescalationConfiguration = this.configuration.squeezeScaleFactor,
 
-                rescalationExecutionTime = flipDuration * 0.2, // 20% of animation time is for rescaling (one time for squeezing, one time for enlarging: 40% tot)
+                rescalationExecutionTime = rotationDuration * 0.2, // 20% of animation time is for rescaling (one time for squeezing, one time for enlarging: 40% tot)
                 rescalationTargetScale, // scale dimension after rescalation
                 rescalationAmount, // dimension of rescalation (initialScale - rescalationTargetScale)
                 rescalationMultiplier, rescalationCurrentValue, previousScale,
 
-                turnsExecutionTime = flipDuration * 0.6,
+                turnsExecutionTime = rotationDuration * 0.6,
                 turnsTargetRotation, // inclination after rotation
                 turnsAmount, // degrees of rotation
                 turnsMultiplier, turnsCurrentValue, turnsPreviousValue,
@@ -499,7 +573,7 @@
                                     elementRotation = 360;
                                 }
                             }
-                            elementRotation += parseInt(turnsAmount / 360) * -360; // rotation of element is incremented of a complete cycle for each complete cycle of board rotation
+                            elementRotation += parseInt(turnsAmount / 360, 10) * -360; // rotation of element is incremented of a complete cycle for each complete cycle of board rotation
 
                             elementMultiplier = elementRotation / turnsExecutionTime;
 
@@ -559,8 +633,10 @@
                     for (var i = _listOfMovements.length - 1; i >= 0; i--) {
                         var move = _listOfMovements[i];
 
-                        var distX = (move.destFile * (_blockSize + _blocksMargin) + _blockSize / 2 - move.piece.x);
-                        var distY = ((this.configuration.blocksInARow - move.destRank - 1) * (_blockSize + _blocksMargin) + _blockSize / 2 - move.piece.y);
+                        var xyCoords = _getXYCoordsFromFileRank(move.destFile, move.destRank);
+
+                        var distX = (xyCoords.x - move.piece.x);
+                        var distY = (xyCoords.y - move.piece.y);
 
                         if (animationOfPieces) {
                             if (move.piece.file != undefined || move.piece.rank != undefined) {
@@ -601,8 +677,8 @@
                 coords              : configuration.coords !== false,
                 blocksInARow        : configuration.blocksInARow        || 8,
                 type                : configuration.type === 'linesGrid' ? 'linesGrid' :
-                                      configuration.goGame === true      ? 'linesGrid' :
-                                                                           'blocksGrid',
+                    configuration.goGame === true      ? 'linesGrid' :
+                        'blocksGrid',
                 gridLinesSize       : configuration.gridLinesSize,
                 lightSquaresColor   : configuration.lightSquaresColor   || "#EFEFEF",
                 darkSquaresColor    : configuration.darkSquaresColor    || "#ABABAB",
@@ -612,7 +688,7 @@
                 labelsColor         : configuration.labelsColor         || "#DDD",
                 highlighterColor    : configuration.highlighterColor    || "lightgreen",
                 marginColor         : configuration.marginColor         || "#222",
-                flipDuration        : configuration.flipDuration === undefined ? 500 : configuration.flipDuration,
+                rotationDuration    : configuration.rotationDuration === undefined ? 500 : configuration.rotationDuration,
                 squeezeScaleFactor  : configuration.squeezeScaleFactor  || 0.7,
                 animationOfPieces   : configuration.animationOfPieces !== false,
                 piecesFolder        : configuration.piecesFolder        || "./img",
@@ -926,7 +1002,6 @@
                             return (function (piece) {
                                 piece.x = _allBlocksSize / 2;
                                 piece.y = _allBlocksSize / 2;
-                                this.piecesOnBoard.addChild(piece);
                                 this.setPieceAtPosition(piece, _getPositionLabelFromFileRank(file, rank));
                             }).bind(this)
                         }).call(this, i, j)
@@ -939,191 +1014,191 @@
 
         /*function createPiece(pieceLabel, file, rank) {
 
-            if (!(_piecesBox[pieceLabel] && _piecesBox[pieceLabel].loaded)) {
-                if (!_piecesBox[pieceLabel]) {
-                    _piecesBox[pieceLabel] = new Image();
-                    _piecesBox[pieceLabel].src = this.configuration.piecesFolder + "/" + pieceLabel + ".png";
-                    _piecesBox[pieceLabel].callbacks = [];
-                    _piecesBox[pieceLabel].onload = (function (e) {
-                        e.target.loaded = true;
-                        for (var i = 0; i < e.target.callbacks.length; i++) {
-                            createPiece.call(this, e.target.callbacks[i].par1, e.target.callbacks[i].par2, e.target.callbacks[i].par3);
-                            //e.target.callbacks[i].f.call(this, e.target.callbacks[i].par1, e.target.callbacks[i].par2, e.target.callbacks[i].par3);
-                        }
-                        _update = true;
-                    }).bind(this);
-                    _piecesBox[pieceLabel].onerror = (function (e) {
-                        console.log("Error loading piece ")
-                        console.log(e);
-                    }).bind(this);
-                }
-                _piecesBox[pieceLabel].callbacks.push({
-                    par1: pieceLabel,
-                    par2: file,
-                    par3: rank
-                });
-                return;
-            }
+         if (!(_piecesBox[pieceLabel] && _piecesBox[pieceLabel].loaded)) {
+         if (!_piecesBox[pieceLabel]) {
+         _piecesBox[pieceLabel] = new Image();
+         _piecesBox[pieceLabel].src = this.configuration.piecesFolder + "/" + pieceLabel + ".png";
+         _piecesBox[pieceLabel].callbacks = [];
+         _piecesBox[pieceLabel].onload = (function (e) {
+         e.target.loaded = true;
+         for (var i = 0; i < e.target.callbacks.length; i++) {
+         createPiece.call(this, e.target.callbacks[i].par1, e.target.callbacks[i].par2, e.target.callbacks[i].par3);
+         //e.target.callbacks[i].f.call(this, e.target.callbacks[i].par1, e.target.callbacks[i].par2, e.target.callbacks[i].par3);
+         }
+         _update = true;
+         }).bind(this);
+         _piecesBox[pieceLabel].onerror = (function (e) {
+         console.log("Error loading piece ")
+         console.log(e);
+         }).bind(this);
+         }
+         _piecesBox[pieceLabel].callbacks.push({
+         par1: pieceLabel,
+         par2: file,
+         par3: rank
+         });
+         return;
+         }
 
-            var bitmap = new createjs.Bitmap(_piecesBox[pieceLabel]);
-            bitmap.color = pieceLabel == pieceLabel.toUpperCase() ? "W" : "B";
-            bitmap.label = pieceLabel;
-            bitmap.regX = bitmap.regY = _piecesBox[pieceLabel].width / 2;
-            bitmap.scaleX = bitmap.scaleY = bitmap.scale = (_blockSize * 0.9) / _piecesBox[pieceLabel].width;
-            bitmap.x = (_blockSize * this.configuration.blocksInARow + _blocksMargin * (this.configuration.blocksInARow - 1)) / 2; // this.configuration.canvasSize / 2; // file * _blockSize + _blockSize / 2;
-            bitmap.y = (_blockSize * this.configuration.blocksInARow + _blocksMargin * (this.configuration.blocksInARow - 1)) / 2; // this.configuration.canvasSize / 2; // (this.configuration.blocksInARow - rank - 1) * _blockSize + _blockSize / 2;
+         var bitmap = new createjs.Bitmap(_piecesBox[pieceLabel]);
+         bitmap.color = pieceLabel == pieceLabel.toUpperCase() ? "W" : "B";
+         bitmap.label = pieceLabel;
+         bitmap.regX = bitmap.regY = _piecesBox[pieceLabel].width / 2;
+         bitmap.scaleX = bitmap.scaleY = bitmap.scale = (_blockSize * 0.9) / _piecesBox[pieceLabel].width;
+         bitmap.x = (_blockSize * this.configuration.blocksInARow + _blocksMargin * (this.configuration.blocksInARow - 1)) / 2; // this.configuration.canvasSize / 2; // file * _blockSize + _blockSize / 2;
+         bitmap.y = (_blockSize * this.configuration.blocksInARow + _blocksMargin * (this.configuration.blocksInARow - 1)) / 2; // this.configuration.canvasSize / 2; // (this.configuration.blocksInARow - rank - 1) * _blockSize + _blockSize / 2;
 
-            var boardSection = Math.floor(((_stage.rotation + 45) % 360) / 90);
-            bitmap.rotation = boardSection * -90;
+         var boardSection = Math.floor(((_stage.rotation + 45) % 360) / 90);
+         bitmap.rotation = boardSection * -90;
 
-            if (this.configuration.actionsOnPieces) {
+         if (this.configuration.actionsOnPieces) {
 
-                bitmap.cursor = "pointer";
-                bitmap.hitArea = new createjs.Shape();
-                bitmap.hitArea.graphics.beginFill("#000")
-                    .drawRect(0, 0, _piecesBox[pieceLabel].width, _piecesBox[pieceLabel].height);
+         bitmap.cursor = "pointer";
+         bitmap.hitArea = new createjs.Shape();
+         bitmap.hitArea.graphics.beginFill("#000")
+         .drawRect(0, 0, _piecesBox[pieceLabel].width, _piecesBox[pieceLabel].height);
 
 
-                bitmap.addEventListener("rollover", (function (evt) {
-                    var piece = evt.target;
-                    piece.scaleX = piece.scaleY = piece.scale * 1.25;
-                    piece.shadow = new createjs.Shadow(this.configuration.shadowColor, 3, 3, 5);
-                    _update = true;
-                }).bind(this));
+         bitmap.addEventListener("rollover", (function (evt) {
+         var piece = evt.target;
+         piece.scaleX = piece.scaleY = piece.scale * 1.25;
+         piece.shadow = new createjs.Shadow(this.configuration.shadowColor, 3, 3, 5);
+         _update = true;
+         }).bind(this));
 
-                bitmap.addEventListener("rollout", (function (evt) {
-                    var piece = evt.target;
-                    piece.scaleX = piece.scaleY = piece.scale;
-                    piece.shadow = null;
-                    _update = true;
-                }).bind(this));
+         bitmap.addEventListener("rollout", (function (evt) {
+         var piece = evt.target;
+         piece.scaleX = piece.scaleY = piece.scale;
+         piece.shadow = null;
+         _update = true;
+         }).bind(this));
 
-                bitmap.addEventListener("mousedown", (function (evt) {
-                    var piece = evt.target;
-                    var boardContainer = _stage.getChildByName("boardContainer");
-                    var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+         bitmap.addEventListener("mousedown", (function (evt) {
+         var piece = evt.target;
+         var boardContainer = _stage.getChildByName("boardContainer");
+         var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                    this.piecesOnBoard.removeChild(piece);
-                    this.piecesOnBoard.addChild(piece);
+         this.piecesOnBoard.removeChild(piece);
+         this.piecesOnBoard.addChild(piece);
 
-                    piece.startPosition = {
-                        x: piece.x,
-                        y: piece.y
-                    };
+         piece.startPosition = {
+         x: piece.x,
+         y: piece.y
+         };
 
-                    piece.x = pt.x;
-                    piece.y = pt.y;
+         piece.x = pt.x;
+         piece.y = pt.y;
 
-                    _update = true;
-                }).bind(this));
+         _update = true;
+         }).bind(this));
 
-                bitmap.addEventListener("pressmove", (function (evt) {
-                    var piece = evt.target;
-                    var boardContainer = _stage.getChildByName("boardContainer");
-                    var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+         bitmap.addEventListener("pressmove", (function (evt) {
+         var piece = evt.target;
+         var boardContainer = _stage.getChildByName("boardContainer");
+         var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                    var file = Math.floor((pt.x + (_blocksMargin / 2)) / (_blockSize + _blocksMargin));
-                    var rank = (this.configuration.blocksInARow - Math.floor((pt.y + (_blocksMargin / 2)) / (_blockSize + _blocksMargin)) - 1);
+         var file = Math.floor((pt.x + (_blocksMargin / 2)) / (_blockSize + _blocksMargin));
+         var rank = (this.configuration.blocksInARow - Math.floor((pt.y + (_blocksMargin / 2)) / (_blockSize + _blocksMargin)) - 1);
 
-                    console.log(file +" "+rank)
+         console.log(file +" "+rank)
 
-                    piece.x = pt.x;
-                    piece.y = pt.y;
+         piece.x = pt.x;
+         piece.y = pt.y;
 
-                    var currentSquare = undefined;
-                    if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInARow)
-                        currentSquare = file + this.configuration.blocksInARow * rank;
+         var currentSquare = undefined;
+         if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInARow)
+         currentSquare = file + this.configuration.blocksInARow * rank;
 
-                    if (currentSquare != piece.currentSquare) {
-                        boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
-                        piece.currentSquare = currentSquare;
-                        if (currentSquare != undefined) {
-                            if (this.configuration.type == 'linesGrid') {
-                                var blockHighlighter = new createjs.Shape();
-                                blockHighlighter.alpha = 0.8;
-                                blockHighlighter.graphics
-                                    .beginFill(this.configuration.highlighterColor)
-                                    .drawCircle(
-                                        (_blockSize + _blocksMargin) * (piece.currentSquare % this.configuration.blocksInARow) + _blockSize / 2,
-                                        (_blockSize + _blocksMargin) * (this.configuration.blocksInARow - Math.floor(piece.currentSquare / this.configuration.blocksInARow) - 1) + _blockSize / 2,
-                                        _highlighterSize * 2.5);
+         if (currentSquare != piece.currentSquare) {
+         boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+         piece.currentSquare = currentSquare;
+         if (currentSquare != undefined) {
+         if (this.configuration.type == 'linesGrid') {
+         var blockHighlighter = new createjs.Shape();
+         blockHighlighter.alpha = 0.8;
+         blockHighlighter.graphics
+         .beginFill(this.configuration.highlighterColor)
+         .drawCircle(
+         (_blockSize + _blocksMargin) * (piece.currentSquare % this.configuration.blocksInARow) + _blockSize / 2,
+         (_blockSize + _blocksMargin) * (this.configuration.blocksInARow - Math.floor(piece.currentSquare / this.configuration.blocksInARow) - 1) + _blockSize / 2,
+         _highlighterSize * 2.5);
 
-                                blockHighlighter.name = "blockHighlighter";
-                            } else {
-                                var blockHighlighter = new createjs.Shape();
-                                blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
-                                    .setStrokeStyle(_highlighterSize)
-                                    .drawRect(
-                                        (_blockSize + _blocksMargin) * (piece.currentSquare % this.configuration.blocksInARow) + _highlighterSize / 2,
-                                        (_blockSize + _blocksMargin) * (this.configuration.blocksInARow - Math.floor(piece.currentSquare / this.configuration.blocksInARow) - 1) + _highlighterSize / 2,
-                                        _blockSize - _highlighterSize,
-                                        _blockSize - _highlighterSize);
-                                blockHighlighter.name = "blockHighlighter";
-                            }
+         blockHighlighter.name = "blockHighlighter";
+         } else {
+         var blockHighlighter = new createjs.Shape();
+         blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
+         .setStrokeStyle(_highlighterSize)
+         .drawRect(
+         (_blockSize + _blocksMargin) * (piece.currentSquare % this.configuration.blocksInARow) + _highlighterSize / 2,
+         (_blockSize + _blocksMargin) * (this.configuration.blocksInARow - Math.floor(piece.currentSquare / this.configuration.blocksInARow) - 1) + _highlighterSize / 2,
+         _blockSize - _highlighterSize,
+         _blockSize - _highlighterSize);
+         blockHighlighter.name = "blockHighlighter";
+         }
 
-                            if (_blocksMargin > 0)
-                                boardContainer.addChildAt(blockHighlighter, 2);
-                            else
-                                boardContainer.addChildAt(blockHighlighter, 1);
-                        }
-                    }
+         if (_blocksMargin > 0)
+         boardContainer.addChildAt(blockHighlighter, 2);
+         else
+         boardContainer.addChildAt(blockHighlighter, 1);
+         }
+         }
 
-                    _update = true;
-                }).bind(this));
+         _update = true;
+         }).bind(this));
 
-                bitmap.addEventListener("pressup", (function (evt) {
-                    var piece = evt.target;
-                    var boardContainer = _stage.getChildByName("boardContainer");
-                    var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+         bitmap.addEventListener("pressup", (function (evt) {
+         var piece = evt.target;
+         var boardContainer = _stage.getChildByName("boardContainer");
+         var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                    var file = Math.floor((pt.x + (_blocksMargin / 2)) / (_blockSize + _blocksMargin));
-                    var rank = (this.configuration.blocksInARow - Math.floor((pt.y + (_blocksMargin / 2)) / (_blockSize + _blocksMargin)) - 1);
+         var file = Math.floor((pt.x + (_blocksMargin / 2)) / (_blockSize + _blocksMargin));
+         var rank = (this.configuration.blocksInARow - Math.floor((pt.y + (_blocksMargin / 2)) / (_blockSize + _blocksMargin)) - 1);
 
-                    boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+         boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
 
-                    var currentSquare = undefined;
-                    if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInARow)
-                        currentSquare = file + this.configuration.blocksInARow * rank;
+         var currentSquare = undefined;
+         if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInARow)
+         currentSquare = file + this.configuration.blocksInARow * rank;
 
-                    if (!currentSquare) {
-                        piece.x = piece.startPosition.x;
-                        piece.y = piece.startPosition.y;
-                    } else {
-                        var sourceFile = Math.floor(piece.startPosition.x / _blockSize);
-                        var sourceRank = this.configuration.blocksInARow - Math.floor(piece.startPosition.y / _blockSize) - 1;
-                        var sourcePosition = _getPositionLabelFromFileRank(piece.file, piece.rank);
-                        var destPosition = _getPositionLabelFromFileRank(file, rank);
-                        if (_hooks.tryMove && _hooks.tryMove(sourcePosition, destPosition)) {
-                            if (_hooks.tryMove(sourcePosition, destPosition, piece)) { // TODO recuperare array di pezzi alla destinazione e passarli al hook
-                                this.move(sourcePosition, destPosition);
-                            } else {
-                                piece.x = piece.startPosition.x;
-                                piece.y = piece.startPosition.y;
-                            }
-                        } else {
-                            this.move(sourcePosition, destPosition);
-                        }
-                        // if (this.isLegalMove(sourceFile, sourceRank, file, rank)) {
-                        //     piece.x = file * (_blockSize + _blocksMargin) + _blockSize / 2;
-                        //     piece.y = (this.configuration.blocksInARow - rank - 1) * (_blockSize + _blocksMargin) + _blockSize / 2;
-                        // } else {
-                        //     piece.x = piece.startPosition.x;
-                        //     piece.y = piece.startPosition.y;
-                        // }
-                    }
+         if (!currentSquare) {
+         piece.x = piece.startPosition.x;
+         piece.y = piece.startPosition.y;
+         } else {
+         var sourceFile = Math.floor(piece.startPosition.x / _blockSize);
+         var sourceRank = this.configuration.blocksInARow - Math.floor(piece.startPosition.y / _blockSize) - 1;
+         var sourcePosition = _getPositionLabelFromFileRank(piece.file, piece.rank);
+         var destPosition = _getPositionLabelFromFileRank(file, rank);
+         if (_hooks.tryMove && _hooks.tryMove(sourcePosition, destPosition)) {
+         if (_hooks.tryMove(sourcePosition, destPosition, piece)) { // TODO recuperare array di pezzi alla destinazione e passarli al hook
+         this.move(sourcePosition, destPosition);
+         } else {
+         piece.x = piece.startPosition.x;
+         piece.y = piece.startPosition.y;
+         }
+         } else {
+         this.move(sourcePosition, destPosition);
+         }
+         // if (this.isLegalMove(sourceFile, sourceRank, file, rank)) {
+         //     piece.x = file * (_blockSize + _blocksMargin) + _blockSize / 2;
+         //     piece.y = (this.configuration.blocksInARow - rank - 1) * (_blockSize + _blocksMargin) + _blockSize / 2;
+         // } else {
+         //     piece.x = piece.startPosition.x;
+         //     piece.y = piece.startPosition.y;
+         // }
+         }
 
-                    _update = true;
-                }).bind(this));
-            }
+         _update = true;
+         }).bind(this));
+         }
 
-            this.piecesOnBoard.addChild(bitmap);
+         this.piecesOnBoard.addChild(bitmap);
 
-            _listOfMovements.push({
-                piece: bitmap,
-                destFile: file,
-                destRank: rank
-            })
-        }*/
+         _listOfMovements.push({
+         piece: bitmap,
+         destFile: file,
+         destRank: rank
+         })
+         }*/
     };
 
     CanvasBoard.prototype.getPosition = function () {
@@ -1170,10 +1245,8 @@
     CanvasBoard.prototype.move = function (/* arguments: see comment */) {
         /*
          * Possible inputs:
-         *
-         *   1. ("H3", "G3")
-         *
-         *   2. (["H3", "G3"], ["A4", "F7"], .....) // for multiple moves simultaneously
+         *   1. ("H3", "G3") // couple of position labels for single move
+         *   2. (["H3", "G3"], ["A4", "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
          */
 
         var movements;
@@ -1184,66 +1257,123 @@
             movements = Array.prototype.slice.call(arguments);
         }
 
+        var movementsArrayWithPiece = [];
         movements.forEach((function(movement) {
-            this.setPieceAtPosition(this.getPieceAtPosition(movement[0]), movement[1]);
+            var piecesAtPosition = this.getPieceAtPosition(movement[0]);
+            if (_isArray(piecesAtPosition)) { // multiple pieces on the same position
+                piecesAtPosition.forEach(function(piece) {
+                    movementsArrayWithPiece.push([piece, movement[1]]);
+                });
+            } else {
+                movementsArrayWithPiece.push([piecesAtPosition, movement[1]]);
+            }
+
         }).bind(this));
+
+        this.setPieceAtPosition.apply(this, movementsArrayWithPiece);
     };
 
-    CanvasBoard.prototype.setPieceAtPosition = function (piece, position) { // position label, like "H7"
+    CanvasBoard.prototype.setPieceAtPosition = function (/* arguments: see comment */) {
+        /*
+         * Possible inputs:
+         *   1. (piece, "H7") // instance of piece and position label of destination
+         *   2. ([piece1, "H7"], [piece2, "G3"], .....) // list of arrays of two elements (as above) for multiple moves simultaneously
+         */
 
-        if (!piece)
-            return false;
+        var movements;
 
-        var numericPosition = _getFileRankFromPositionLabel(position);
+        if (arguments.length == 2 && _piecesBox[arguments[0].label] && typeof arguments[1] === 'string') {
+            movements = [[arguments[0], arguments[1]]];
+        } else {
+            movements = Array.prototype.slice.call(arguments);
+        }
 
-        var file = numericPosition.file;
-        var rank = numericPosition.rank;
+        var movementsList = [];
 
-        // if (piece.file == undefined && piece.rank == undefined) {
-        //     piece.y = (this.configuration.blocksInARow - rank - 1) * (_blockSize + _blocksMargin) + _blockSize / 2;
-        //     piece.x = file * (_blockSize + _blocksMargin) + _blockSize / 2;
-        // }
+        movements.forEach((function(movement) {
+            var piece = movement[0];
+            var position = movement[1];
 
-        var yetMoving = false;
-        for (var i=0; i<_listOfMovements.length; i++) {
-            var move = _listOfMovements[i];
-            if (move.piece == piece) {
-                move.destFile = file;
-                move.destRank = rank;
-                yetMoving = true;
-                break;
+            if (!piece)
+                return false;
+
+            var numericPosition = _getFileRankFromPositionLabel(position);
+
+            var file = numericPosition.file;
+            var rank = numericPosition.rank;
+
+            if (!this.piecesOnBoard.contains(piece)) {
+                if (!piece.x || !piece.y) {
+                    var xyCoords = _getXYCoordsFromFileRank(file, rank);
+                    piece.x = xyCoords.x;
+                    piece.y = xyCoords.y;
+                }
+                this.piecesOnBoard.addChild(piece);
             }
-        }
 
-        if (!yetMoving) {
-            _listOfMovements.push({
-                piece: piece,
-                destFile: file,
-                destRank: rank
-            });
-        }
+            var yetMoving = false;
+            for (var i=0; i<_listOfMovements.length; i++) {
+                var move = _listOfMovements[i];
+                if (move.piece == piece) {
+                    move.destFile = file;
+                    move.destRank = rank;
+                    yetMoving = true;
+                    break;
+                }
+            }
+
+            if (!yetMoving) {
+                movementsList.push({
+                    piece: piece,
+                    destFile: file,
+                    destRank: rank
+                });
+            }
+
+        }).bind(this));
+
+        _listOfMovements = _listOfMovements.concat(movementsList);
 
         return true;
     };
 
     CanvasBoard.prototype.getPieceAtPosition = function (position) {
+        /*
+         * returns  - array of pieces on position passed as parameter
+         *          - or single piece if there is only one piece on position
+         */
 
         var numericPosition = _getFileRankFromPositionLabel(position);
 
         var file = numericPosition.file;
         var rank = numericPosition.rank;
 
+        var piecesOnPosition = [];
+
         for (var i = 0; i < this.piecesOnBoard.getNumChildren(); i++) {
             var piece = this.piecesOnBoard.getChildAt(i);
             if (piece.file == file && piece.rank == rank) {
-                return piece;
+                piecesOnPosition.push(piece);
             }
         }
 
-        return undefined;
+        return piecesOnPosition.length == 1 ? piecesOnPosition[0] : piecesOnPosition;
     };
 
-    CanvasBoard.prototype.getNewPiece = function (pieceLabel) {
+    CanvasBoard.prototype.getNewPiece = function (pieceLabel) { // input: label of piece
+        /*
+         * async function that returns a promise!
+         *
+         * Use:
+         *  var promise = myBoard.getNewPiece("p");
+         *  promise.then(function(requestedPiece) {
+         *       // piece handling
+         *  }).catch(function(errorGettingPiece) {
+         *       // error handling
+         *  });
+         *
+         *  .then() chaining and .catch() chaining is supported
+         */
 
         var deferred = customQ.defer();
 
@@ -1256,8 +1386,8 @@
             piece.regX = piece.regY = _piecesBox[pieceLabel].width / 2;
             piece.scaleX = piece.scaleY = piece.scale = (_blockSize * 0.9) / _piecesBox[pieceLabel].width;
 
-            piece.x = _allBlocksSize / 2;
-            piece.y = _allBlocksSize / 2;
+            piece.x = undefined;
+            piece.y = undefined;
 
             var boardSection = Math.floor(((_stage.rotation + 45) % 360) / 90);
             piece.rotation = boardSection * -90;
@@ -1307,10 +1437,10 @@
                     var boardContainer = _stage.getChildByName("boardContainer");
                     var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                    var file = Math.floor((pt.x + (_blocksMargin / 2)) / (_blockSize + _blocksMargin));
-                    var rank = (this.configuration.blocksInARow - Math.floor((pt.y + (_blocksMargin / 2)) / (_blockSize + _blocksMargin)) - 1);
+                    var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
 
-                    console.log(file +" "+rank)
+                    var file = numericPosition.file;
+                    var rank = numericPosition.rank;
 
                     piece.x = pt.x;
                     piece.y = pt.y;
@@ -1323,7 +1453,7 @@
                         boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
                         piece.currentSquare = currentSquare;
                         if (currentSquare != undefined) {
-                            if (this.configuration.type == 'linesGrid') {
+                            if (this.configuration.type == 'linesGrid') { // add an highlighter circle at cross of lines
                                 var blockHighlighter = new createjs.Shape();
                                 blockHighlighter.alpha = 0.8;
                                 blockHighlighter.graphics
@@ -1334,7 +1464,7 @@
                                         _highlighterSize * 2.5);
 
                                 blockHighlighter.name = "blockHighlighter";
-                            } else {
+                            } else { // add an highlighter border to block
                                 var blockHighlighter = new createjs.Shape();
                                 blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
                                     .setStrokeStyle(_highlighterSize)
@@ -1361,8 +1491,10 @@
                     var boardContainer = _stage.getChildByName("boardContainer");
                     var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                    var file = Math.floor((pt.x + (_blocksMargin / 2)) / (_blockSize + _blocksMargin));
-                    var rank = (this.configuration.blocksInARow - Math.floor((pt.y + (_blocksMargin / 2)) / (_blockSize + _blocksMargin)) - 1);
+                    var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
+
+                    var file = numericPosition.file;
+                    var rank = numericPosition.rank;
 
                     boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
 
