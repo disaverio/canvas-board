@@ -205,8 +205,8 @@
     }
 
     function _getXYCoordsFromFileRank(file, rank) {
-        var xCoord = file * (_configuration.blockSize + _configuration.highlighterSize) + _configuration.blockSize / 2;
-        var yCoord = (_configuration.blocksInAColumn - rank - 1) * (_configuration.blockSize + _configuration.highlighterSize) + _configuration.blockSize / 2; // the coord y==0 is at the top, but row 0 is at the bottom
+        var xCoord = file * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2;
+        var yCoord = (_configuration.blocksInAColumn - rank - 1) * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2; // the coord y==0 is at the top, but row 0 is at the bottom
 
         return {
             x: xCoord,
@@ -215,8 +215,8 @@
     }
 
     function _getFileRankFromXYCoords(x, y) {
-        var file = Math.floor((x + (_configuration.highlighterSize / 2)) / (_configuration.blockSize + _configuration.highlighterSize));
-        var rank = (_configuration.blocksInAColumn - Math.floor((y + (_configuration.highlighterSize / 2)) / (_configuration.blockSize + _configuration.highlighterSize)) - 1);
+        var file = Math.floor((x + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize));
+        var rank = (_configuration.blocksInAColumn - Math.floor((y + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize)) - 1);
 
         return {
             file: file,
@@ -302,8 +302,8 @@
      *  canvasWidth         // width in px to which the canvas will be set      | integer           | optional - default: canvasHeight if is set, width of html canvas element otherwise. ignored if canvasSize is set
      *  canvasHeight        // height in px to which the canvas will be set     | integer           | optional - default: canvasWidth if is set, height of html canvas element otherwise. ignored if canvasSize is set
      *  canvasSize,         // dimension in px to which the canvas will be set  | integer           | optional - no default: see canvasWidth and canvasHeight
-     *  borderSize,         // dimension in px of board border                  | integer           | optional - default: 3.5% of canvas size. set to 0 to remove border
-     *  blocksMargin,       // dimension in px of margin between blocks         | integer or 'auto' | optional - default: 0, no margin between blocks. 'auto' set margin to 3% of block size
+     *  borderSize,         // dimension in px of board border                  | integer           | optional - default: 3.5% of min(canvasWidth, canvasHeight). set to 0 to remove border
+     *  blocksMargin,       // dimension in px of margin between blocks         | integer or 'auto' | optional - default: 0, no margin between blocks. 'auto' set margin to ~3% (rounded) of block size.
      *  gridLinesSize,      // dimension in px of lines for 'linesGrid' type    | integer           | optional - default: 3% of block size. ignored if type != 'linesGrid'
      *
      *  lightSquaresColor,  // color of light squares                           | string            | optional - default: "#EFEFEF"
@@ -313,7 +313,7 @@
      *  shadowColor,        // color of border shadow                           | string            | optional - default: "#000"
      *  labelsColor,        // color of border labels                           | string            | optional - default: "#DDD"
      *  highlighterColor,   // color to highlight elements                      | string            | optional - default: "lightgreen"
-     *  marginColor,        // color of margin between blocks                   | string            | optional - default: 3% of block size. ignored if type != 'linesGrid'
+     *  marginColor,        // color of margin between blocks                   | string            | optional - default: "#222", ignored if type != 'linesGrid'
      *
      *  coords,             // specify if board has blocks coords labels        | boolean           | optional - default: true. if there is no border this parameter is ignored
      *
@@ -673,7 +673,7 @@
 
             var borderSize;
             if (configuration.borderSize === undefined) {
-                var pivotValue = configuration.canvasSize || Math.min(canvasWidth, canvasHeight);
+                var pivotValue = Math.min(canvasWidth, canvasHeight);
                 borderSize = pivotValue * 0.035;
             } else {
                 borderSize = configuration.borderSize;
@@ -689,9 +689,9 @@
             if (configuration.blocksMargin != 0) {
                 if (configuration.blocksMargin == 'auto') {
                     var availableWidthForMarginsAndBlocks = canvasWidth - (borderSize + shadowSize) * 2;
-                    var unitOfWidthSpaceForBlocks = availableWidthForMarginsAndBlocks / (100 * blocksInARow + 3 * (blocksInARow - 1)); // default block border size is 3% of block size
+                    var unitOfWidthSpaceForBlocks = availableWidthForMarginsAndBlocks / (100 * blocksInARow + 3 * (blocksInARow - 1)); // default block border size is ~3% of block size
                     var availableHeightForMarginsAndBlocks = canvasHeight - (borderSize + shadowSize) * 2;
-                    var unitOfHeightSpaceForBlocks = availableHeightForMarginsAndBlocks / (100 * blocksInAColumn + 3 * (blocksInAColumn - 1)); // default block border size is 3% of block size
+                    var unitOfHeightSpaceForBlocks = availableHeightForMarginsAndBlocks / (100 * blocksInAColumn + 3 * (blocksInAColumn - 1)); // default block border size is ~3% of block size
 
                     var unitOfSpaceForBlocks = Math.min(unitOfWidthSpaceForBlocks, unitOfHeightSpaceForBlocks);
                     blockSize = Math.floor(unitOfSpaceForBlocks * 100);
@@ -792,7 +792,7 @@
                 label.regY = label.getMeasuredLineHeight() / 2;
 
                 var fixedCoord = _configuration.borderSize / 2 + _configuration.shadowSize + (orientation == "H" ? _configuration.boardPaddingHeightSize : _configuration.boardPaddingWidthSize);
-                var floatingCoord = _configuration.borderSize + i * (_configuration.blockSize + _configuration.highlighterSize) + _configuration.blockSize / 2 + _configuration.shadowSize + (orientation == "H" ? _configuration.boardPaddingWidthSize : _configuration.boardPaddingHeightSize);
+                var floatingCoord = _configuration.borderSize + i * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2 + _configuration.shadowSize + (orientation == "H" ? _configuration.boardPaddingWidthSize : _configuration.boardPaddingHeightSize);
 
                 label.x = orientation == "H" ? floatingCoord : fixedCoord;
                 label.y = orientation == "H" ? fixedCoord : floatingCoord;
@@ -1332,8 +1332,8 @@
                                 blockHighlighter.graphics
                                     .beginFill(_configuration.highlighterColor)
                                     .drawCircle(
-                                        (_configuration.blockSize + _configuration.highlighterSize) * (piece.currentSquare % _configuration.blocksInARow) + _configuration.blockSize / 2,
-                                        (_configuration.blockSize + _configuration.highlighterSize) * (_configuration.blocksInAColumn - Math.floor(piece.currentSquare / _configuration.blocksInARow) - 1) + _configuration.blockSize / 2,
+                                        (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (piece.currentSquare % _configuration.blocksInARow) + _configuration.blockSize / 2,
+                                        (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - Math.floor(piece.currentSquare / _configuration.blocksInARow) - 1) + _configuration.blockSize / 2,
                                         _configuration.highlighterSize * 2.5);
 
                                 blockHighlighter.name = "blockHighlighter";
@@ -1342,14 +1342,14 @@
                                 blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
                                     .setStrokeStyle(_configuration.highlighterSize)
                                     .drawRect(
-                                        (_configuration.blockSize + _configuration.highlighterSize) * file + _configuration.highlighterSize / 2,
-                                        (_configuration.blockSize + _configuration.highlighterSize) * (_configuration.blocksInAColumn - rank - 1) + _configuration.highlighterSize / 2,
+                                        (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * file + _configuration.highlighterSize / 2,
+                                        (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - rank - 1) + _configuration.highlighterSize / 2,
                                         _configuration.blockSize - _configuration.highlighterSize,
                                         _configuration.blockSize - _configuration.highlighterSize);
                                 blockHighlighter.name = "blockHighlighter";
                             }
 
-                            if (_configuration.highlighterSize > 0)
+                            if (_configuration.marginBetweenBlocksSize > 0)
                                 boardContainer.addChildAt(blockHighlighter, 2);
                             else
                                 boardContainer.addChildAt(blockHighlighter, 1);
