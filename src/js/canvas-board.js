@@ -717,7 +717,6 @@
 
             return {
                 canvasId                    : configuration.canvasId,
-
                 canvasWidth                 : canvasWidth,
                 canvasHeight                : canvasHeight,
                 canvasSize                  : configuration.canvasSize,
@@ -731,15 +730,10 @@
                 boardPaddingWidthSize       : (canvasWidth - allBlocksWidth - (borderSize + shadowSize) * 2) / 2,
                 boardPaddingHeightSize      : (canvasHeight - allBlocksHeight - (borderSize + shadowSize) * 2) / 2,
                 gridLinesSize               : configuration.gridLinesSize || blockSize * 0.03,
-
                 blocksInARow                : blocksInARow,
                 blocksInAColumn             : blocksInAColumn,
-
                 coords                      : configuration.coords !== false,
-
-
                 type                        : configuration.type === 'linesGrid' ? 'linesGrid' : configuration.goGame === true ? 'linesGrid' : 'blocksGrid',
-
                 lightSquaresColor           : configuration.lightSquaresColor   || "#EFEFEF",
                 darkSquaresColor            : configuration.darkSquaresColor    || "#ABABAB",
                 linesColor                  : configuration.linesColor          || "#000",
@@ -940,15 +934,24 @@
         }
         for (var i = 0; i < _configuration.blocksInAColumn; i++) { // for each row
             var temp = 0;
-            for (var j = 0; j < rows[i].length; j++) {
+            for (var j = 0; j < rows[i].length; ) {
                 if (isNaN(rows[i][j])) {
                     newBoard[temp][_configuration.blocksInAColumn -1 - i] = rows[i][j];
                     temp++;
+                    j++;
                 } else {
-                    temp += parseInt(rows[i][j], 10);
+                    for (var z=1; z+j<rows[i].length; z++) { // calc chars length of number
+                        if (isNaN(rows[i][j+z]))
+                            break;
+                    }
+                    var lengthOfNumber = z;
+                    var number = rows[i].substr(j, lengthOfNumber);
+                    temp += parseInt(number, 10);
+                    j += lengthOfNumber;
                 }
             }
         }
+        console.log(newBoard)
 
         // temp vars for computation
         var assignedPieces = [];
@@ -1094,11 +1097,12 @@
             if (piece.rank != undefined && piece.file != undefined)
                 currentBoard[piece.file][piece.rank] = piece.label;
         }
+        console.log(currentBoard)
 
         var fen = '';
 
-        for (var i = 0; i < _configuration.blocksInAColumn; i++) {
-            if (i != 0)
+        for (var i = _configuration.blocksInAColumn-1; i >=0; i--) {
+            if (i != _configuration.blocksInAColumn-1)
                 fen += '/';
             var temp = 0;
             for (var j = 0; j < _configuration.blocksInARow; j++) {
@@ -1176,7 +1180,7 @@
             var rank = numericPosition.rank;
 
             if (!this.piecesOnBoard.contains(piece)) {
-                if (!piece.x || !piece.y) {
+                if (!piece.x || !piece.y) { // a new piece (with no x,y coords) is immediately placed in the position without movement
                     var xyCoords = _getXYCoordsFromFileRank(file, rank);
                     piece.x = xyCoords.x;
                     piece.y = xyCoords.y;
