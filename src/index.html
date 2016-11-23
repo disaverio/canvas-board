@@ -27,14 +27,16 @@
     require(["canvasBoard"], function(canvasBoard){
         board = new canvasBoard({
             canvasId: "myCanvas",
-            canvasSize: 900,
+            canvasWidth: 900,
+            canvasHeight: 900,
+            blocksInARow: 15,
+            blocksInAColumn: 6,
             borderColor: "#000",
             labelsColor: "#FFF",
             lightSquaresColor: "#f2b06d",
             marginColor: "red",
             blocksMargin: 'auto',
             //type: "linesGrid",
-            blocksInARow: 8,
             flipDuration: 500,
             squeezeScaleFactor: 0.7,
             //goGame: true
