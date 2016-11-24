@@ -14,7 +14,7 @@
 </html>
 <script src="../bower_components/requirejs/require.js"></script>
 <script>
-    require.config({
+    requirejs.config({
         paths: {
             createjs: '../bower_components/create-js/EaselJS/lib/easeljs-0.8.2.min',
             canvasBoard: 'js/canvas-board'
@@ -23,9 +23,8 @@
             createjs: { exports: 'createjs' }
         }
     });
-    var board; // exposed to global scope for test purposes
-    require(["canvasBoard"], function(canvasBoard){
-        board = new canvasBoard({
+    requirejs(["canvasBoard"], function(CanvasBoard){
+        new CanvasBoard({
             canvasId: "myCanvas",
             canvasWidth: 900,
             canvasHeight: 900,
