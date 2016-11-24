@@ -22,8 +22,8 @@ With AMD loader (e.g. [RequireJS](http://requirejs.org/)):
 <script>
     requirejs.config({
         paths: {
-            createjs: '../bower_components/create-js/EaselJS/lib/easeljs-0.8.2.min',
-            canvasBoard: 'js/canvas-board'
+            createjs: 'https://code.createjs.com/easeljs-0.8.2.min',
+            canvasBoard: 'canvas-board.min'
         },
         shim: {
             createjs: { exports: 'createjs' }
