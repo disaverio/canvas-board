@@ -9,14 +9,14 @@ module.exports = function(grunt) {
                 src: [
                     'src/js/*.js'
                 ],
-                dest: 'dist/js/canvas-board.concat.js'
+                dest: 'dist/canvas-board.concat.js'
             }
         },
 
         uglify: {
             build: {
                 src: 'src/js/canvas-board.js',
-                dest: 'dist/js/canvas-board.min.js'
+                dest: 'dist/canvas-board.min.js'
             }
         }
 
