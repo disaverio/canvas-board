@@ -1,0 +1,20 @@
+{
+  "name": "canvas-board",
+  "description": "General purpose NxN board",
+  "main": "",
+  "authors": [
+    "Andrea Di Saverio <disaverio.andrea@gmail.com>"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/disaverio/canvas-board",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "create-js": "*"
+  }
+}
