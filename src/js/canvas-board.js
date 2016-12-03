@@ -686,7 +686,7 @@
                 shadowSize = borderSize,
                 marginBetweenBlocksSize = 0;
 
-            if (configuration.blocksMargin != 0) {
+            if (configuration.blocksMargin != 0 && configuration.blocksMargin != undefined) {
                 if (configuration.blocksMargin == 'auto') {
                     var availableWidthForMarginsAndBlocks = canvasWidth - (borderSize + shadowSize) * 2;
                     var unitOfWidthSpaceForBlocks = availableWidthForMarginsAndBlocks / (100 * blocksInARow + 3 * (blocksInARow - 1)); // default block border size is ~3% of block size
@@ -856,7 +856,7 @@
                         drawCircle();
                     }
                 }
-                if (_configuration.blocksInARow == 19) {
+                if (_configuration.blocksInARow >= 19) {
                     if (((columnOfBlock == 3 || (_configuration.blocksInARow - columnOfBlock == 4)) && rowOfBlock == Math.floor(_configuration.blocksInARow / 2)) || ((rowOfBlock == 3 || (_configuration.blocksInARow - rowOfBlock == 4)) && columnOfBlock == Math.floor(_configuration.blocksInARow / 2))) {
                         drawCircle();
                     }
@@ -878,6 +878,8 @@
 
     CanvasBoard.prototype.setRotation = function (degrees) {
 
+        degrees = degrees || 0;
+
         _stage.rotation = ((degrees % 360) + 360) % 360; // to make destination in [0, 360]
 
         var elementRotation = Math.floor(((_stage.rotation + 45) % 360) / 90) * -90;
@@ -894,6 +896,11 @@
     };
 
     CanvasBoard.prototype.scale = function (scaleFactor) {
+
+        if (scaleFactor === undefined) {
+            throw new Error("No scale factor passed as parameter.");
+        }
+
         _canvas.width = _configuration.canvasWidth * scaleFactor;
         _canvas.height = _configuration.canvasHeight * scaleFactor;
 
@@ -908,6 +915,10 @@
          * gets positionString in FEN notation as input and sets board
          * a char in position string is also the name of image file of piece
          */
+
+        if (positionString === undefined) {
+            throw new Error("No position passed as parameter.");
+        }
 
         var currentListOfMovements;
         if (_listOfMovements.length > 0) {
@@ -1139,6 +1150,11 @@
         var movementsArrayWithPiece = [];
         movements.forEach((function(movement) {
             var piecesAtPosition = this.getPieceAtPosition(movement[0]);
+
+            if (!piecesAtPosition) {
+                return;
+            }
+
             if (_isArray(piecesAtPosition)) { // multiple pieces on the same position
                 piecesAtPosition.forEach(function(piece) {
                     movementsArrayWithPiece.push([piece, movement[1]]);
@@ -1149,7 +1165,7 @@
 
         }).bind(this));
 
-        this.setPieceAtPosition.apply(this, movementsArrayWithPiece);
+        return this.setPieceAtPosition.apply(this, movementsArrayWithPiece);
     };
 
     CanvasBoard.prototype.setPieceAtPosition = function (/* arguments: see comment */) {
@@ -1167,6 +1183,8 @@
 
         var movementsList = [];
 
+        var thereArePiecesToMove = false;
+
         movements.forEach((function(movement) {
             var piece = movement[0];
             var position = movement[1];
@@ -1178,6 +1196,10 @@
 
             var file = numericPosition.file;
             var rank = numericPosition.rank;
+
+            if (file < 0 || file > _configuration.blocksInARow || rank < 0 || rank > _configuration.blocksInAColumn) {
+                return;
+            }
 
             if (!this.piecesOnBoard.contains(piece)) {
                 if (!piece.x || !piece.y) { // a new piece (with no x,y coords) is immediately placed in the position without movement
@@ -1207,7 +1229,13 @@
                 });
             }
 
+            thereArePiecesToMove = true;
+
         }).bind(this));
+
+        if (!thereArePiecesToMove) {
+            return false;
+        }
 
         _listOfMovements = _listOfMovements.concat(movementsList);
 
@@ -1230,11 +1258,36 @@
         for (var i = 0; i < this.piecesOnBoard.getNumChildren(); i++) {
             var piece = this.piecesOnBoard.getChildAt(i);
             if (piece.file == file && piece.rank == rank) {
+                this.piecesOnBoard.removeChild(piece);
+                this.piecesOnBoard.addChild(piece);
                 piecesOnPosition.push(piece);
             }
         }
 
-        return piecesOnPosition.length == 1 ? piecesOnPosition[0] : piecesOnPosition;
+        return piecesOnPosition.length == 0 ? undefined :
+               piecesOnPosition.length == 1 ? piecesOnPosition[0] :
+                                              piecesOnPosition;
+    };
+
+    CanvasBoard.prototype.removePieceFromPosition = function(position) {
+        // remove all pieces from position passed as parameter
+
+        var pieces = this.getPieceAtPosition(position);
+
+        if (!pieces)
+            return false;
+
+        if (!_isArray(pieces)) {
+            pieces = [pieces];
+        }
+
+        pieces.forEach((function(piece) {
+            this.piecesOnBoard.removeChild(piece);
+        }).bind(this));
+
+        _update = true;
+
+        return true;
     };
 
     CanvasBoard.prototype.getNewPiece = function (pieceLabel) { // input: label of piece

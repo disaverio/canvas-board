@@ -12,29 +12,30 @@
     <canvas id="myCanvas" style="margin-left: auto; margin-right: auto;"></canvas>
 </body>
 </html>
-<script src="../bower_components/requirejs/require.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.2/require.min.js"></script>
 <script>
     requirejs.config({
         paths: {
-            createjs: '../bower_components/create-js/EaselJS/lib/easeljs-0.8.2.min',
+            createjs: 'https://code.createjs.com/easeljs-0.8.2.min',
             canvasBoard: 'js/canvas-board'
         },
         shim: {
             createjs: { exports: 'createjs' }
         }
     });
+    var board;
     requirejs(["canvasBoard"], function(CanvasBoard){
-        new CanvasBoard({
+        board = new CanvasBoard({
             canvasId: "myCanvas",
-            canvasWidth: 900,
-            canvasHeight: 900,
-            blocksInARow: 15,
-            blocksInAColumn: 6,
-            borderColor: "#000",
-            labelsColor: "#FFF",
-            lightSquaresColor: "#f2b06d",
+            canvasWidth: 700,
+            canvasHeight: 700,
+            blocksInARow: 12,
+            blocksInAColumn: 8,
+            borderColor: "#EFEFEF",
+            labelsColor: "#000",
+            //lightSquaresColor: "#f2b06d",
             marginColor: "red",
-            blocksMargin: 'auto',
+            //blocksMargin: 0,
             //type: "linesGrid",
             flipDuration: 500,
             squeezeScaleFactor: 0.7,

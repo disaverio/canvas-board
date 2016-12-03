@@ -18,7 +18,7 @@ Direct include:
 With AMD loader (e.g. [RequireJS](http://requirejs.org/)):
 
 ```html
-<script src="require.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.2/require.min.js"></script>
 <script>
     requirejs.config({
         paths: {
@@ -95,3 +95,49 @@ Label of piece corresponds to filename of piece image. **Important:** board supp
 
 ### Constructor: CanvasBoard(configuration)
 See above
+
+### .rotate([degrees])
+Rotate the board of _degrees_ degrees from current position, with animation. Parameter _degrees_ is an optional integer: if no value is passed then board is rotated of 180°.
+
+### .setRotation([degrees])
+Set rotation of board to _degrees_ degrees, without animation. Parameter _degrees_ is an optional integer: if no value is passed then rotation of board is set to 0.
+
+### .scale(scaleFactor)
+Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mandatory number.
+
+### .setPosition(position)
+Set pieces on board according to position passed as parameter. _position_ is a mandatory string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (extended to current board dimension).
+Each char of string indicates label of a piece and corresponds to filename of piece image (without extension. Extension must be .pgn). Only filenames of one char are accepted.
+ 
+### .getPosition()
+Returns current position of board, in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation.
+
+### .move(startingSquare, endingSquare)
+Move a piece from _startingSquare_ square to _endingSquare_ square. _startingSquare_ and _endingSquare_ parameters are strings in the form of board coords, e.g. like "H7".
+
+### .move(_movesList_)
+Like above, but with a list of moves for simultaneous multiple moves. Each move is defined as an array of two strings as above. E.g. .move(["H3", "G3"], ["A4", "F7"], ...)
+ 
+### .setPieceAtPosition(piece, endingSquare)
+Move _piece_ piece to _endingSquare_ square. _piece_ parameter is an instance of a piece (retrieved by _getPieceAtPosition()_ function) and _endingSquare_ parameter is a string in the form of board coords, e.g. like "H7.
+
+### .setPieceAtPosition(_movesList_)
+Like above, but with a list of moves for simultaneous multiple moves. Each move is defined as an array of two elements as in the previous case.
+
+### .removePieceFromPosition(position)
+Remove a piece from _position_ position. _position parameter is a string in the form of board coords, e.g. like "H7.
+
+### .getNewPiece(pieceLabel)
+Async function to instantiate a new piece. _pieceLabel_ parameter is filename of piece image without extension.
+Function returns a promise. Example of use:
+
+```js
+var promise = myBoard.getNewPiece("p");
+promise.then(function(requestedPiece) {
+     // do stuff with requestedPiece
+}).catch(function(errorGettingPiece) {
+     // error handling
+});
+```
+
+.then() chaining and .catch() chaining is supported
