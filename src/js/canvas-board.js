@@ -1246,6 +1246,7 @@
         /*
          * returns  - array of pieces on position passed as parameter
          *          - or single piece if there is only one piece on position
+         *          - undefined if no piece is in position
          */
 
         var numericPosition = _getFileRankFromPositionLabel(position);

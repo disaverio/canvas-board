@@ -124,8 +124,12 @@ Move _piece_ piece to _endingSquare_ square. _piece_ parameter is an instance of
 ### .setPieceAtPosition(_movesList_)
 Like above, but with a list of moves for simultaneous multiple moves. Each move is defined as an array of two elements as in the previous case.
 
+### .getPieceAtPosition(position)
+Returns an array with pieces in _position_ position. Single piece in _position_ there is one piece. _undefined_ if no piece is on _position_.
+
 ### .removePieceFromPosition(position)
 Remove a piece from _position_ position. _position parameter is a string in the form of board coords, e.g. like "H7.
+Return _true_ if piece is removed, _false_ otherwise (also if there is no piece).
 
 ### .getNewPiece(pieceLabel)
 Async function to instantiate a new piece. _pieceLabel_ parameter is filename of piece image without extension.
