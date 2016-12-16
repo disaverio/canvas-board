@@ -145,18 +145,15 @@
      * @constructor
      * @param {Object} configuration {
          *  canvasId,           // id of canvas html element                        | string            | mandatory
-         *
          *  type,               // 'linesGrid' or 'blocksGrid'                      | string literal    | optional - default: 'blocksGrid'. if 'linesGrid' then 'lightSquaresColor' is used as background color
          *  blocksInARow,       // number of blocks in a row                        | integer           | optional - default: blocksInAColumn if is set, 8 otherwise
          *  blocksInAColumn     // number of blocks in a column                     | integer           | optional - default: blocksInARow if is set, 8 otherwise
-         *
          *  canvasWidth         // width in px to which the canvas will be set      | integer           | optional - default: canvasHeight if is set, width of html canvas element otherwise. ignored if canvasSize is set
          *  canvasHeight        // height in px to which the canvas will be set     | integer           | optional - default: canvasWidth if is set, height of html canvas element otherwise. ignored if canvasSize is set
          *  canvasSize,         // dimension in px to which the canvas will be set  | integer           | optional - no default: see canvasWidth and canvasHeight
          *  borderSize,         // dimension in px of board border                  | integer           | optional - default: 3.5% of min(canvasWidth, canvasHeight). set to 0 to remove border
          *  blocksMargin,       // dimension in px of margin between blocks         | integer or 'auto' | optional - default: 0, no margin between blocks. 'auto' set margin to ~3% (rounded) of block size.
          *  gridLinesSize,      // dimension in px of lines for 'linesGrid' type    | integer           | optional - default: 3% of block size. ignored if type != 'linesGrid'
-         *
          *  lightSquaresColor,  // color of light squares                           | string            | optional - default: "#EFEFEF"
          *  darkSquaresColor,   // color of dark squares                            | string            | optional - default: "#ABABAB". ignored if type is 'linesGrid'
          *  linesColor,         // color of lines if type is 'linesGrid'            | string            | optional - default: "#000"
@@ -165,26 +162,17 @@
          *  labelsColor,        // color of border labels                           | string            | optional - default: "#DDD"
          *  highlighterColor,   // color to highlight elements                      | string            | optional - default: "lightgreen"
          *  marginColor,        // color of margin between blocks                   | string            | optional - default: "#222", ignored if type != 'linesGrid'
-         *
          *  coords,             // specify if board has blocks coords labels        | boolean           | optional - default: true. if there is no border this parameter is ignored
-         *
          *  rotationDuration,   // duration of flipping in millisecs                | integer           | optional - default: 500
          *  squeezeScaleFactor, // rescaling factor of board for flip animation     | number in [0,1]   | optional - default: 0.7
          *  animationOfPieces,  // specify if pieces movement is animated           | boolean           | optional - default: true
          *  actionsOnPieces,    // specify if enabled mouse interaction with pieces | boolean           | optional - default: true
-         *
          *  piecesFolder,       // relative (to html page) path to pieces images    | string            | optional - default: "./img"
-         *
          *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. if true type is automatically set to 'linesGrid'
          *  chessGame: {        // to define properties for chess optimization      | object            | optional - default: undefined. board is not optimized for chess
          *      pawnLabel,      // label of pawn, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
          *      bishopLabel,    // label of bishop, used in filename of piece       | string            | mandatory if chess object is defined. ignored otherwise
          *      rookLabel       // label of rook, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
-         *  }
-    -     *  piecesBox: {
-         *      position,       // 't','b','r','l', or combination: 'tr','tpb'...   | string            | optional - default: 'r'
-         *      pieces,         // string with list of labels of pieces in the box  | string            | optional - no default: empty box
-         *      replace         // if true a piece taken from box is replaced       | boolean           | optional - default: true
          *  }
          * }
      */
@@ -197,7 +185,7 @@
             _listOfMovements = [],
             _containersToRotate = [],
             _piecesBox = {},
-            _hooks = {},
+            _hooks = {}, // TODO add hooks support
             _loadingPieces = {},
             _alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -907,7 +895,7 @@
                             var sourcePosition = _getPositionLabelFromFileRank(piece.file, piece.rank);
                             var destPosition = _getPositionLabelFromFileRank(file, rank);
                             if (_hooks.tryMove) {
-                                if (_hooks.tryMove(sourcePosition, destPosition, piece)) { // TODO recuperare array di pezzi alla destinazione e passarli al hook come quarto parametro
+                                if (_hooks.tryMove(sourcePosition, destPosition, piece)) { // TODO retrieve array of pieces on destination and pass it to hook as fourth parameter
                                     this.setPieceAtPosition(piece, destPosition);
                                 } else {
                                     piece.x = piece.startPosition.x;
@@ -1096,7 +1084,7 @@
                             }
 
                             if (enlargeFirstTick) {
-                                rescalationTargetScale = previousScale / _stage.scaleX; // TODO oppure settare uguale a dim max se board storta
+                                rescalationTargetScale = previousScale / _stage.scaleX; // TODO or calc max dim if board exceed canvas size due to rotation angle
                             }
 
                             if (squeezeFirstTick || enlargeFirstTick) { // initialization of squeezing
@@ -1399,7 +1387,7 @@
                 return backColor;
             }
 
-            function drawBlockLines(block, columnOfBlock, rowOfBlock) { // TODO controllare cosa succede con 19 blocchi, e semmai estendere per > 19
+            function drawBlockLines(block, columnOfBlock, rowOfBlock) {
 
                 var blockGraphic = block.graphics;
 
