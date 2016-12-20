@@ -147,9 +147,9 @@
      *  canvasId,           // id of canvas html element                        | string            | mandatory
      *  type,               // 'linesGrid' or 'blocksGrid'                      | string literal    | optional - default: 'blocksGrid'. if 'linesGrid' then 'lightSquaresColor' is used as background color
      *  blocksInARow,       // number of blocks in a row                        | integer           | optional - default: blocksInAColumn if is set, 8 otherwise
-     *  blocksInAColumn     // number of blocks in a column                     | integer           | optional - default: blocksInARow if is set, 8 otherwise
-     *  canvasWidth         // width in px to which the canvas will be set      | integer           | optional - default: canvasHeight if is set, width of html canvas element otherwise. ignored if canvasSize is set
-     *  canvasHeight        // height in px to which the canvas will be set     | integer           | optional - default: canvasWidth if is set, height of html canvas element otherwise. ignored if canvasSize is set
+     *  blocksInAColumn,    // number of blocks in a column                     | integer           | optional - default: blocksInARow if is set, 8 otherwise
+     *  canvasWidth,        // width in px to which the canvas will be set      | integer           | optional - default: canvasHeight if is set, width of html canvas element otherwise. ignored if canvasSize is set
+     *  canvasHeight,       // height in px to which the canvas will be set     | integer           | optional - default: canvasWidth if is set, height of html canvas element otherwise. ignored if canvasSize is set
      *  canvasSize,         // dimension in px to which the canvas will be set  | integer           | optional - no default: see canvasWidth and canvasHeight
      *  borderSize,         // dimension in px of board border                  | integer           | optional - default: 3.5% of min(canvasWidth, canvasHeight). set to 0 to remove border
      *  blocksMargin,       // dimension in px of margin between blocks         | integer or 'auto' | optional - default: 0, no margin between blocks. 'auto' set margin to ~3% (rounded) of block size.
@@ -161,13 +161,14 @@
      *  shadowColor,        // color of border shadow                           | string            | optional - default: "#000"
      *  labelsColor,        // color of border labels                           | string            | optional - default: "#DDD"
      *  highlighterColor,   // color to highlight elements                      | string            | optional - default: "lightgreen"
-     *  marginColor,        // color of margin between blocks                   | string            | optional - default: "#222", ignored if type != 'linesGrid'
+     *  marginColor,        // color of margin between blocks                   | string            | optional - default: "#222", ignored if blocksMargin == 0 or not set
      *  coords,             // specify if board has blocks coords labels        | boolean           | optional - default: true. if there is no border this parameter is ignored
      *  rotationDuration,   // duration of flipping in millisecs                | integer           | optional - default: 500
      *  squeezeScaleFactor, // rescaling factor of board for flip animation     | number in [0,1]   | optional - default: 0.7
      *  animationOfPieces,  // specify if pieces movement is animated           | boolean           | optional - default: true
      *  actionsOnPieces,    // specify if enabled mouse interaction with pieces | boolean           | optional - default: true
      *  piecesFolder,       // relative (to html page) path to pieces images    | string            | optional - default: "./img"
+     *  position,           // starting position in FEN-like notation           | string            | optional - default: no pieces on board
      *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. if true type is automatically set to 'linesGrid'
      *  chessGame: {        // to define properties for chess optimization      | object            | optional - default: undefined. board is not optimized for chess
      *      pawnLabel,      // label of pawn, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
@@ -323,10 +324,17 @@
         }
 
         this.rotate = function (degrees) {
+
+            if (!Number.isInteger(degrees))
+                throw new Error("Passed value is not an integer.");
+
             _rotationDegrees = degrees || 180;
         };
 
         this.setRotation = function (degrees) {
+
+            if (!Number.isInteger(degrees))
+                throw new Error("Passed value is not an integer.");
 
             degrees = degrees || 0;
 
@@ -347,6 +355,9 @@
 
         this.scale = function (scaleFactor) {
 
+            if (isNaN(scaleFactor))
+                throw new Error("Passed value is not a number.");
+
             if (scaleFactor === undefined) {
                 throw new Error("No scale factor passed as parameter.");
             }
@@ -360,14 +371,19 @@
             _update = true;
         };
 
-        this.setPosition = function (positionString) {
+        this.setPosition = function (position) {
             /*
-             * gets positionString in FEN notation as input and sets board
+             * gets position in FEN notation as input and sets board
              * a char in position string is also the name of image file of piece
              */
 
-            if (positionString === undefined) {
-                throw new Error("No position passed as parameter.");
+            if (!position) { // clean the board
+                position = "";
+                for (var i=0; i<_configuration.blocksInAColumn; i++) {
+                    if (position.length > 0)
+                        position += "/"
+                    position += _configuration.blocksInARow;
+                }
             }
 
             var currentListOfMovements;
@@ -388,7 +404,7 @@
             }
 
             // create object with state of board with new position
-            var rows = positionString.split("/");
+            var rows = position.split("/");
             var newBoard = [];
             for (var i = 0; i < _configuration.blocksInARow; i++) { // add an array for each column
                 newBoard.push([]);
@@ -412,7 +428,6 @@
                     }
                 }
             }
-            console.log(newBoard)
 
             // temp vars for computation
             var assignedPieces = [];
@@ -509,27 +524,19 @@
             for (var i = _piecesContainer.getNumChildren() - 1; i >= 0; i--) {
                 var piece = _piecesContainer.getChildAt(i);
                 if (assignedPieces.indexOf(piece) == -1) {
-                    _piecesContainer.removeChildAt(i);
+                    this.removePieceFromPosition(_getPositionLabelFromFileRank(piece.file, piece.rank));
                 }
-            }
-
-            // start movements
-            if (listOfMovements.length == 0) {
-                _update = true;
-            } else {
-                _listOfMovements = listOfMovements;
             }
 
             // add missing pieces
             for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
                 for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
                     if (newBoard[i][j]) {
-                        //createPiece.call(this, newBoard[i][j], i, j);
                         var promise = this.getNewPiece(newBoard[i][j]);
                         promise.then(
                             (function (file, rank) {
                                 var xStarting, yStarting;
-                                if (_piecesContainer.getNumChildren() == 0) { // if board is empty movements of new position start from center of board
+                                if (_piecesContainer.getNumChildren() == 0 && _configuration.animationOfPieces) { // if board is empty movements of new position start from center of board
                                     xStarting = _configuration.allBlocksWidth / 2;
                                     yStarting = _configuration.allBlocksHeight / 2;
                                 }
@@ -544,6 +551,11 @@
                         });
                     }
                 }
+            }
+
+            // start movements
+            if (listOfMovements.length > 0) {
+                _listOfMovements = listOfMovements;
             }
         };
 
@@ -862,10 +874,7 @@
                                     blockHighlighter.name = "blockHighlighter";
                                 }
 
-                                if (_configuration.marginBetweenBlocksSize > 0)
-                                    boardContainer.addChildAt(blockHighlighter, 2);
-                                else
-                                    boardContainer.addChildAt(blockHighlighter, 1);
+                                boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren()-1);
                             }
                         }
 
@@ -920,7 +929,7 @@
         };
 
         // let's go!
-        (function() {
+        ((function() {
 
             /*
              * Elements stack:
@@ -929,9 +938,9 @@
              *     |    |--border
              *     |    |--labelsContainer     -> added to _containersToRotate
              *     |--boardContainer
-             *          |--background           // exists only if there is space between block
-             *          |--blockHighlighter     // exists only during piece pressmove event
+             *          |--blocksBorder
              *          |--blocksContainer
+             *          |--blockHighlighter     // exists only during piece pressmove event
              *          |--_piecesContainer    -> added to _containersToRotate
              */
 
@@ -995,8 +1004,8 @@
                 var blocksBorder = new createjs.Shape();
                 var blocksBorderGraphic = blocksBorder.graphics;
 
-                //blocksBorderGraphic.drawRect(0, 0, _configuration.allBlocksWidth, _configuration.allBlocksHeight);
-                blocksBorderGraphic.beginStroke(_configuration.marginColor)
+                blocksBorderGraphic
+                    .beginStroke(_configuration.marginColor)
                     .setStrokeStyle(_configuration.marginBetweenBlocksSize);
 
                 for (var i = 0; i < _configuration.blocksInARow - 1; i++) {
@@ -1239,6 +1248,10 @@
 
             _update = true;
 
+            if (_configuration.position) {
+                this.setPosition(_configuration.position);
+            }
+
             function setValues(configuration) {
 
                 var canvasWidth = configuration.canvasSize || configuration.canvasWidth || configuration.canvasHeight || _canvas.width;
@@ -1322,6 +1335,7 @@
                     actionsOnPieces: configuration.actionsOnPieces !== false,
                     blocksMargin: configuration.blocksMargin || 0,
                     goGame: configuration.goGame === true,
+                    position: configuration.position,
                     chessGame: configuration.chessGame
                 }
             }
@@ -1443,6 +1457,6 @@
                         .drawCircle(_configuration.blockSize / 2, _configuration.blockSize / 2, _configuration.gridLinesSize * 2.5);
                 }
             }
-        })();
+        }).bind(this))();
     };
 });

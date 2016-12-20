@@ -105,8 +105,8 @@ Set rotation of board to _degrees_ degrees, without animation. Parameter _degree
 ### .scale(scaleFactor)
 Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mandatory number.
 
-### .setPosition(position)
-Set pieces on board according to position passed as parameter. _position_ is a mandatory string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (extended to current board dimension).
+### .setPosition([position])
+Set pieces on board according to position passed as parameter. _position_ is an optional string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (coherent to current board dimensions): if no value is passed then board is cleaned.
 Each char of string indicates label of a piece and corresponds to filename of piece image (without extension. Extension must be .pgn). Only filenames of one char are accepted.
  
 ### .getPosition()
@@ -125,23 +125,23 @@ Move _piece_ piece to _endingSquare_ square. _piece_ parameter is an instance of
 Like above, but with a list of moves for simultaneous multiple moves. Each move is defined as an array of two elements as in the previous case.
 
 ### .getPieceAtPosition(position)
-Returns an array with pieces in _position_ position. Single piece in _position_ there is one piece. _undefined_ if no piece is on _position_.
+Returns an array with pieces in _position_ position. Single piece if in _position_ there is one piece. _undefined_ if no piece is on _position_.
 
 ### .removePieceFromPosition(position)
-Remove a piece from _position_ position. _position parameter is a string in the form of board coords, e.g. like "H7.
-Return _true_ if piece is removed, _false_ otherwise (also if there is no piece).
+Remove a piece from _position_ position. _position_ parameter is a string in the form of board coords, e.g. like "H7.
+Returns _true_ if piece is removed, _false_ otherwise (also if there is no piece).
 
 ### .getNewPiece(pieceLabel)
 Async function to instantiate a new piece. _pieceLabel_ parameter is filename of piece image without extension.
 Function returns a promise. Example of use:
 
 ```js
-var promise = myBoard.getNewPiece("p");
-promise.then(function(requestedPiece) {
-     // do stuff with requestedPiece
-}).catch(function(errorGettingPiece) {
-     // error handling
-});
+myBoard.getNewPiece("p")
+    .then(function(requestedPiece) {
+         // do stuff with requestedPiece
+    }).catch(function(errorGettingPiece) {
+         // error handling
+    });
 ```
 
 .then() chaining and .catch() chaining is supported
