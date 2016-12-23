@@ -170,6 +170,17 @@
      *  piecesFolder,       // relative (to html page) path to pieces images    | string            | optional - default: "./img"
      *  position,           // starting position in FEN-like notation           | string            | optional - default: no pieces on board
      *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. if true type is automatically set to 'linesGrid'
+     *  hooks: {            // object with functions hooks                      | object            | optional - default: no hooks
+     *      isValidMove,    // function executed on .move() invocation. if returns true then .move() is executed, otherwise no.
+     *                      // signature: function isValidMove({String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
+     *                      //                                                  | function          | optional - default: undefined, .move() is executed
+     *      preMove,        // function executed on .move() invocation, right after eventual .isValidMove() execution (if true is returned) and before .move() execution.
+     *                      // signature: function preMove({String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
+     *                      //                                                  | function          | optional - default: undefined. nothing is executed
+     *      postMove        // function executed on .move() invocation, right after .move() execution
+     *                      // signature: function postMove({?} returnedFromPreMove, {Boolean} returnedFromMove, {String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
+     *                      //                                                  | function          | optional - default: undefined. nothing is executed
+     *  },
      *  chessGame: {        // to define properties for chess optimization      | object            | optional - default: undefined. board is not optimized for chess
      *      pawnLabel,      // label of pawn, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
      *      bishopLabel,    // label of bishop, used in filename of piece       | string            | mandatory if chess object is defined. ignored otherwise
@@ -186,7 +197,6 @@
             _listOfMovements = [],
             _containersToRotate = [],
             _piecesBox = {},
-            _hooks = {}, // TODO add hooks support
             _loadingPieces = {},
             _alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -276,6 +286,10 @@
                 return Array.isArray(object);
 
             return typeof object !== 'undefined' && object && object.constructor === Array;
+        }
+
+        function _isPiece(object) {
+            return typeof object === 'object' && object.label;
         }
 
         function _createPiece(pieceLabel) {
@@ -529,17 +543,17 @@
             }
 
             // add missing pieces
+            var xStarting, yStarting;
+            if (_piecesContainer.getNumChildren() == 0 && _configuration.animationOfPieces) { // if board is empty movements of new position start from center of board
+                xStarting = _configuration.allBlocksWidth / 2;
+                yStarting = _configuration.allBlocksHeight / 2;
+            }
             for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
                 for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
                     if (newBoard[i][j]) {
                         var promise = this.getNewPiece(newBoard[i][j]);
                         promise.then(
                             (function (file, rank) {
-                                var xStarting, yStarting;
-                                if (_piecesContainer.getNumChildren() == 0 && _configuration.animationOfPieces) { // if board is empty movements of new position start from center of board
-                                    xStarting = _configuration.allBlocksWidth / 2;
-                                    yStarting = _configuration.allBlocksHeight / 2;
-                                }
                                 return (function (piece) {
                                     piece.x = xStarting;
                                     piece.y = yStarting;
@@ -575,7 +589,6 @@
                 if (piece.rank != undefined && piece.file != undefined)
                     currentBoard[piece.file][piece.rank] = piece.label;
             }
-            console.log(currentBoard)
 
             var fen = '';
 
@@ -606,9 +619,10 @@
              * Possible inputs:
              *   1. ("H3", "G3") // couple of position labels for single move
              *   2. (["H3", "G3"], ["A4", "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
+             *   3. (piece, "G3") // instance of a piece and position label
              */
 
-            if (arguments.length == 2 && typeof arguments[0] === 'string' && typeof arguments[1] === 'string') { // method overload
+            if (arguments.length == 2 && (typeof arguments[0] === 'string' || _isPiece(arguments[0])) && typeof arguments[1] === 'string') { // method overload
                 return this.move([arguments[0], arguments[1]]);
             }
 
@@ -616,23 +630,62 @@
 
             var movementsArrayWithPiece = [];
             movements.forEach((function (movement) {
-                var piecesAtPosition = this.getPieceAtPosition(movement[0]);
 
-                if (!piecesAtPosition) {
-                    return;
-                }
+                var piecesAtStartingPosition, positionFrom;
 
-                if (_isArray(piecesAtPosition)) { // multiple pieces on the same position
-                    piecesAtPosition.forEach(function (piece) {
-                        movementsArrayWithPiece.push([piece, movement[1]]);
-                    });
+                if (_isPiece(movement[0])) {
+                    positionFrom = _getPositionLabelFromFileRank(movement[0].file, movement[0].rank);
+                    piecesAtStartingPosition = [movement[0]];
                 } else {
-                    movementsArrayWithPiece.push([piecesAtPosition, movement[1]]);
+                    positionFrom = movement[0];
+                    piecesAtStartingPosition = this.getPieceAtPosition(positionFrom);
+                    if (piecesAtStartingPosition) {
+                        if (!_isArray(piecesAtStartingPosition)) {
+                            piecesAtStartingPosition = [piecesAtStartingPosition];
+                        }
+                    } else {
+                        return;
+                    }
                 }
+
+                var piecesAtDestination = this.getPieceAtPosition(movement[1]);
+                if (piecesAtDestination) {
+                    if (!_isArray(piecesAtDestination)) {
+                        piecesAtDestination = [piecesAtDestination];
+                    }
+                } else {
+                    piecesAtDestination = [];
+                }
+
+                piecesAtStartingPosition.forEach(function (piece) {
+                    if (_configuration.hooks.isValidMove) {
+                        if (_configuration.hooks.isValidMove(positionFrom, movement[1], piece, piecesAtDestination)) {
+                            movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
+                        }
+                    } else {
+                        movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
+                    }
+                });
 
             }).bind(this));
 
-            return this.setPieceAtPosition.apply(this, movementsArrayWithPiece);
+            var thereAreMovements = false;
+
+            movementsArrayWithPiece.forEach((function(movement) {
+
+                var preMoveReturned;
+                if (_configuration.hooks.preMove) {
+                    preMoveReturned = _configuration.hooks.preMove(movement[0], movement[1], movement[2], movement[3]);
+                }
+                var moved = this.setPieceAtPosition(movement[2], movement[1]);
+                if (_configuration.hooks.postMove) {
+                    _configuration.hooks.postMove(preMoveReturned, moved, movement[0], movement[1], movement[2], movement[3]);
+                }
+
+                thereAreMovements = moved || thereAreMovements;
+            }).bind(this));
+
+            return thereAreMovements;
         };
 
         this.setPieceAtPosition = function (/* arguments: see comment */) {
@@ -657,7 +710,7 @@
                 var position = movement[1];
 
                 if (!piece)
-                    return false;
+                    return;
 
                 var numericPosition = _getFileRankFromPositionLabel(position);
 
@@ -893,7 +946,7 @@
 
                         boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
 
-                        var currentSquare = undefined;
+                        var currentSquare;
                         if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn)
                             currentSquare = file + _configuration.blocksInARow * rank;
 
@@ -901,21 +954,18 @@
                             piece.x = piece.startPosition.x;
                             piece.y = piece.startPosition.y;
                         } else {
+
                             var sourcePosition = _getPositionLabelFromFileRank(piece.file, piece.rank);
                             var destPosition = _getPositionLabelFromFileRank(file, rank);
-                            if (_hooks.tryMove) {
-                                if (_hooks.tryMove(sourcePosition, destPosition, piece)) { // TODO retrieve array of pieces on destination and pass it to hook as fourth parameter
-                                    this.setPieceAtPosition(piece, destPosition);
-                                } else {
-                                    piece.x = piece.startPosition.x;
-                                    piece.y = piece.startPosition.y;
-                                }
-                            } else {
-                                this.setPieceAtPosition(piece, destPosition);
+
+                            var moved = this.move(piece, destPosition);
+
+                            if (!moved) {
+                                piece.x = piece.startPosition.x;
+                                piece.y = piece.startPosition.y;
+                                _update = true;
                             }
                         }
-
-                        _update = true;
                     }).bind(this));
                 }
 
@@ -936,12 +986,12 @@
              *   _stage
              *     |--borderContainer
              *     |    |--border
-             *     |    |--labelsContainer     -> added to _containersToRotate
+             *     |    |--labelsContainer      -> added to _containersToRotate
              *     |--boardContainer
-             *          |--blocksBorder
+             *          |--blocksBorder         // exists only if there is space between block
              *          |--blocksContainer
              *          |--blockHighlighter     // exists only during piece pressmove event
-             *          |--_piecesContainer    -> added to _containersToRotate
+             *          |--_piecesContainer     -> added to _containersToRotate
              */
 
             if (!configuration || !configuration.canvasId)
@@ -1336,6 +1386,7 @@
                     blocksMargin: configuration.blocksMargin || 0,
                     goGame: configuration.goGame === true,
                     position: configuration.position,
+                    hooks: configuration.hooks || {},
                     chessGame: configuration.chessGame
                 }
             }
