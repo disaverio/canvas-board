@@ -1244,7 +1244,7 @@
                                 var amountForThisStep = (event.delta * turnsMultiplier) % 360;
 
                                 turnsCurrentValue += Math.abs(amountForThisStep);
-                                _stage.rotation = _stage.rotation += amountForThisStep;
+                                _stage.rotation += amountForThisStep;
 
                                 for (var i = 0; i < _containersToRotate.length; i++) {
                                     var container = _containersToRotate[i];
