@@ -33,7 +33,7 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         animationOfPieces: false,
         actionsOnPieces: false,
         lightSquaresColor: "#f2b06d",
-        position: "www10/ggwww1w6/g1gwgwwg5/1gggggww5/4gwgg5/4gwwgw4/2g2gww5/5gw6/5ggw5/4gwgg5/4gwwgw4/1gggggww5/ggwww1w6",
+        position: "www10/bbwww1w6/b1bwbwwb5/1bbbbbww5/4bwbb5/4bwwbw4/2b2bww5/5bw6/5bbw5/4bwbb5/4bwwbw4/1bbbbbww5/bbwww1w6",
         borderColor: "#f2b06d",
         coords: false
     });
@@ -43,7 +43,11 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         borderColor: "#EFEFEF",
         labelsColor: "#000",
         highlighterColor: "#000",
-        position: "1c1c1c1c/c1c1c1c1/1c1c1c1c/8/8/d1d1d1d1/1d1d1d1d/d1d1d1d1"
+        position: "1w1w1w1w/w1w1w1w1/1w1w1w1w/8/8/b1b1b1b1/1b1b1b1b/b1b1b1b1",
+        piecesFiles: {
+            b: "checkers_black",
+            w: "checkers_white"
+        }
     });
     board6 = new CanvasBoard({
         canvasId: "ex6",
@@ -59,7 +63,7 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         animationOfPieces: false,
         actionsOnPieces: false,
         lightSquaresColor: "#f2b06d",
-        position: "www10/ggwww1w6/g1gwgwwg5/1gggggww5/4gwgg5/4gwwgw4/2g2gww5/5gw6/5ggw5/4gwgg5/4gwwgw4/1gggggww5/ggwww1w6",
+        position: "www10/bbwww1w6/b1bwbwwb5/1bbbbbww5/4bwbb5/4bwwbw4/2b2bww5/5bw6/5bbw5/4bwbb5/4bwwbw4/1bbbbbww5/bbwww1w6",
         borderColor: "#f2b06d",
         coords: false
     });
@@ -69,12 +73,19 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         borderColor: "#EFEFEF",
         labelsColor: "#000",
         highlighterColor: "#000",
-        position: "1c1c1c1c/c1c1c1c1/1c1c1c1c/8/8/d1d1d1d1/1d1d1d1d/d1d1d1d1"
+        position: "1w1w1w1w/w1w1w1w1/1w1w1w1w/8/8/b1b1b1b1/1b1b1b1b/b1b1b1b1",
+        piecesFiles: {
+            b: "checkers_black",
+            w: "checkers_white"
+        }
     });
     board9 = new CanvasBoard({
         canvasId: "ex9",
         canvasSize: 510,
-        highlighterColor: "#000"
+        highlighterColor: "#000",
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        }
     });
 });
 function tryFunction(f) {

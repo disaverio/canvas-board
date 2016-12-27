@@ -168,8 +168,12 @@
      *  animationOfPieces,  // specify if pieces movement is animated           | boolean           | optional - default: true
      *  actionsOnPieces,    // specify if enabled mouse interaction with pieces | boolean           | optional - default: true
      *  piecesFolder,       // relative (to html page) path to pieces images    | string            | optional - default: "./img"
+     *  piecesFiles: {      // to define pieces filenames if != pieceLabel      | object            | optional - default: piece filename corresponds to pieceLabel
+     *      key: value,     // key is piaceLabel, value is filename without ext | strings pair      | optional - set a key/value pair for each piece with label different from filename
+     *      ...             //
+     *  },                  //
      *  position,           // starting position in FEN-like notation           | string            | optional - default: no pieces on board
-     *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. if true type is automatically set to 'linesGrid'
+     *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. if true then type is automatically set to 'linesGrid'
      *  hooks: {            // object with functions hooks                      | object            | optional - default: no hooks
      *      isValidMove,    // function executed on .move() invocation. if returns true then .move() is executed, otherwise no.
      *                      // signature: function isValidMove({String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
@@ -180,17 +184,17 @@
      *      postMove        // function executed on .move() invocation, right after .move() execution
      *                      // signature: function postMove({?} returnedFromPreMove, {Boolean} returnedFromMove, {String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
      *                      //                                                  | function          | optional - default: undefined. nothing is executed
-     *  },
+     *  },                  //
      *  chessGame: {        // to define properties for chess optimization      | object            | optional - default: undefined. board is not optimized for chess
-     *      pawnLabel,      // label of pawn, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
-     *      bishopLabel,    // label of bishop, used in filename of piece       | string            | mandatory if chess object is defined. ignored otherwise
-     *      rookLabel       // label of rook, used in filename of piece         | string            | mandatory if chess object is defined. ignored otherwise
+     *      pawnLabel,      // label of pawn, used in filename of piece         | string            | optional - default: no movement optimization for pawn
+     *      bishopLabel,    // label of bishop, used in filename of piece       | string            | optional - default: no movement optimization for bishop
+     *      rookLabel       // label of rook, used in filename of piece         | string            | optional - default: no movement optimization for rook
      *  }
      * }
      */
     return function(configuration) {
 
-        // private members
+        // private
         var _stage, _canvas, _configuration, _piecesContainer,
             _update = false,
             _rotationDegrees = 0,
@@ -198,26 +202,18 @@
             _containersToRotate = [],
             _piecesBox = {},
             _loadingPieces = {},
-            _alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        function __getNumberOfChars(numberOfElements, numbersOfSymbols) {
+            return Math.ceil(Math.log(numberOfElements) / Math.log(numbersOfSymbols));
+        }
 
         function _getNumberOfCharsInHorizontalBoardLabels() {
-
-            var charsInLabel = Math.ceil(Math.log(_configuration.blocksInARow) / Math.log(_alphabet.length));
-            if (charsInLabel == 0) { // workaround for blockInARow == 1
-                charsInLabel++;
-            }
-
-            return charsInLabel;
+            return __getNumberOfChars(_configuration.blocksInARow, _hBoardLabelsAlphabet.length) || 1;
         }
 
         function _getNumberOfCharsInVerticalBoardLabels() {
-
-            var charsInLabel = Math.ceil(Math.log(_configuration.blocksInAColumn) / Math.log(10));
-            if (charsInLabel == 0) { // workaround for blockInARow == 1
-                charsInLabel++;
-            }
-
-            return charsInLabel;
+            return __getNumberOfChars(_configuration.blocksInAColumn, 10) || 1;
         }
 
         function _getFileRankFromPositionLabel(positionLabel) {
@@ -228,7 +224,7 @@
 
             var file = 0;
             for (var i = 0; i < charsInHorizontalLabel; i++) {
-                file += _alphabet.indexOf(fileLabel.charAt(i)) * Math.pow(_alphabet.length, charsInHorizontalLabel - (i + 1));
+                file += _hBoardLabelsAlphabet.indexOf(fileLabel.charAt(i)) * Math.pow(_hBoardLabelsAlphabet.length, charsInHorizontalLabel - (i + 1));
             }
             var rank = rankLabel - 1;
 
@@ -243,7 +239,7 @@
             var charsInLabel = _getNumberOfCharsInHorizontalBoardLabels();
             var label = "";
             for (var j = charsInLabel; j > 0; j--) {
-                label += _alphabet.charAt(Math.floor((file % Math.pow(_alphabet.length, j)) / Math.pow(_alphabet.length, j - 1)));
+                label += _hBoardLabelsAlphabet.charAt(Math.floor((file % Math.pow(_hBoardLabelsAlphabet.length, j)) / Math.pow(_hBoardLabelsAlphabet.length, j - 1)));
             }
 
             label += (rank + 1);
@@ -252,33 +248,17 @@
         }
 
         function _getXYCoordsFromFileRank(file, rank) {
-            var xCoord = file * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2;
-            var yCoord = (_configuration.blocksInAColumn - rank - 1) * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2; // the coord y==0 is at the top, but row 0 is at the bottom
-
             return {
-                x: xCoord,
-                y: yCoord
+                x: file * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2,
+                y: (_configuration.blocksInAColumn - rank - 1) * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2 // the coord y==0 is at the top, but row 0 is at the bottom
             };
         }
 
         function _getFileRankFromXYCoords(x, y) {
-            var file = Math.floor((x + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize));
-            var rank = (_configuration.blocksInAColumn - Math.floor((y + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize)) - 1);
-
             return {
-                file: file,
-                rank: rank
+                file: Math.floor((x + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize)),
+                rank: _configuration.blocksInAColumn - Math.floor((y + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize)) - 1
             };
-        }
-
-        function _getXYCoordsFromPositionLabel(positionLabel) {
-            var numericPosition = _getFileRankFromPositionLabel(positionLabel);
-            return _getXYCoordsFromFileRank(numericPosition.file, numericPosition.rank);
-        }
-
-        function _getPositionLabelFromXYCoords(x, y) {
-            var numericPosition = _getFileRankFromXYCoords(x, y);
-            return _getPositionLabelFromFileRank(numericPosition.file, numericPosition.rank);
         }
 
         function _isArray(object) {
@@ -300,7 +280,7 @@
                 if (!_loadingPieces[pieceLabel]) {
 
                     var pieceImage = new Image();
-                    pieceImage.src = _configuration.piecesFolder + "/" + pieceLabel + ".png";
+                    pieceImage.src = _configuration.piecesFolder + "/" + (_configuration.piecesFiles[pieceLabel] || pieceLabel) + ".png";
 
                     pieceImage.onload = function (e) {
 
@@ -339,7 +319,7 @@
 
         this.rotate = function (degrees) {
 
-            if (!Number.isInteger(degrees))
+            if (degrees !== undefined && !Number.isInteger(degrees))
                 throw new Error("Passed value is not an integer.");
 
             _rotationDegrees = degrees || 180;
@@ -347,7 +327,7 @@
 
         this.setRotation = function (degrees) {
 
-            if (!Number.isInteger(degrees))
+            if (degrees !== undefined && !Number.isInteger(degrees))
                 throw new Error("Passed value is not an integer.");
 
             degrees = degrees || 0;
@@ -369,11 +349,8 @@
 
         this.scale = function (scaleFactor) {
 
-            if (isNaN(scaleFactor))
-                throw new Error("Passed value is not a number.");
-
-            if (scaleFactor === undefined) {
-                throw new Error("No scale factor passed as parameter.");
+            if (scaleFactor === undefined || isNaN(scaleFactor) || scaleFactor < 0) {
+                throw new Error("Invalid scale parameter.");
             }
 
             _canvas.width = _configuration.canvasWidth * scaleFactor;
@@ -388,14 +365,15 @@
         this.setPosition = function (position) {
             /*
              * gets position in FEN notation as input and sets board
-             * a char in position string is also the name of image file of piece
+             * if no parameter is passed then clear the board
              */
 
             if (!position) { // clean the board
                 position = "";
                 for (var i=0; i<_configuration.blocksInAColumn; i++) {
-                    if (position.length > 0)
-                        position += "/"
+                    if (position.length > 0) {
+                        position += "/";
+                    }
                     position += _configuration.blocksInARow;
                 }
             }
@@ -432,8 +410,9 @@
                         j++;
                     } else {
                         for (var z = 1; z + j < rows[i].length; z++) { // calc chars length of number
-                            if (isNaN(rows[i][j + z]))
+                            if (isNaN(rows[i][j + z])) {
                                 break;
+                            }
                         }
                         var lengthOfNumber = z;
                         var number = rows[i].substr(j, lengthOfNumber);
@@ -493,26 +472,28 @@
                                     var alternativePiece = _piecesContainer.getChildAt(k);
                                     if (newBoard[i][j] == alternativePiece.label && assignedPieces.indexOf(alternativePiece) == -1) { // search for a piece for a more consistent movement
                                         var alternativeDistance = 0;
-                                        if (_configuration.chessGame) {
-                                            if (alternativePiece.label.toUpperCase() == _configuration.chessGame.bishopLabel.toUpperCase()) {
-                                                if (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2))
-                                                    piece = alternativePiece;
-                                                else if ((((alternativePiece.rank + alternativePiece.file) % 2 != (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) || (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 == (i + j) % 2)))
-                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                            } else if (alternativePiece.label.toUpperCase() == _configuration.chessGame.rookLabel.toUpperCase()) {
-                                                if ((alternativePiece.file == i || alternativePiece.rank == j) && !(piece.file == i || piece.rank == j))
-                                                    piece = alternativePiece;
-                                                else
-                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                            } else if (alternativePiece.label.toUpperCase() == _configuration.chessGame.pawnLabel.toUpperCase()) {
-                                                if (alternativePiece.file == i && piece.file != i)
-                                                    piece = alternativePiece;
-                                                else if ((alternativePiece.file == i && piece.file == i) || (alternativePiece.file != i && piece.file != i))
-                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                            } else
+
+                                        if (_configuration.chessGame.bishopLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.bishopLabel.toUpperCase()) {
+                                            if (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) { // found a bishop of correct square color, while current selected bishop is on a square with of not correct color
+                                                piece = alternativePiece;
+                                            } else if ((((alternativePiece.rank + alternativePiece.file) % 2 != (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) || (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 == (i + j) % 2))) { // both bishops are on squares of same color
                                                 alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                        } else
+                                            }
+                                        } else if (_configuration.chessGame.rookLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.rookLabel.toUpperCase()) {
+                                            if ((alternativePiece.file == i || alternativePiece.rank == j) && !(piece.file == i || piece.rank == j)) { // alternative rook has correct file or rank, while current selected rook not
+                                                piece = alternativePiece;
+                                            } else { // check alternative rook by distance
+                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                            }
+                                        } else if (_configuration.chessGame.pawnLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.pawnLabel.toUpperCase()) {
+                                            if (alternativePiece.file == i && piece.file != i) { // alternative pawn has correct file, while current pawn not
+                                                piece = alternativePiece;
+                                            } else if ((alternativePiece.file == i && piece.file == i) || (alternativePiece.file != i && piece.file != i)) {
+                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                            }
+                                        } else {
                                             alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                        }
 
                                         if (alternativeDistance && alternativeDistance < distance) {
                                             distance = alternativeDistance;
@@ -618,8 +599,8 @@
             /*
              * Possible inputs:
              *   1. ("H3", "G3") // couple of position labels for single move
-             *   2. (["H3", "G3"], ["A4", "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
-             *   3. (piece, "G3") // instance of a piece and position label
+             *   2. (piece, "G3") // instance of a piece and position label
+             *   3. (["H3", "G3"], [piece, "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
              */
 
             if (arguments.length == 2 && (typeof arguments[0] === 'string' || _isPiece(arguments[0])) && typeof arguments[1] === 'string') { // method overload
@@ -669,7 +650,7 @@
 
             }).bind(this));
 
-            var thereAreMovements = false;
+            var movementsOccurred = false;
 
             movementsArrayWithPiece.forEach((function(movement) {
 
@@ -677,15 +658,17 @@
                 if (_configuration.hooks.preMove) {
                     preMoveReturned = _configuration.hooks.preMove(movement[0], movement[1], movement[2], movement[3]);
                 }
+                _piecesContainer.removeChild(movement[2]);
+                _piecesContainer.addChild(movement[2]);
                 var moved = this.setPieceAtPosition(movement[2], movement[1]);
                 if (_configuration.hooks.postMove) {
                     _configuration.hooks.postMove(preMoveReturned, moved, movement[0], movement[1], movement[2], movement[3]);
                 }
 
-                thereAreMovements = moved || thereAreMovements;
+                movementsOccurred = moved || movementsOccurred;
             }).bind(this));
 
-            return thereAreMovements;
+            return movementsOccurred;
         };
 
         this.setPieceAtPosition = function (/* arguments: see comment */) {
@@ -779,15 +762,13 @@
             for (var i = _piecesContainer.getNumChildren()-1; i >= 0; i--) {
                 var piece = _piecesContainer.getChildAt(i);
                 if (piece.file == file && piece.rank == rank) {
-                    _piecesContainer.removeChild(piece);
-                    _piecesContainer.addChild(piece);
                     piecesOnPosition.push(piece);
                 }
             }
 
             return piecesOnPosition.length == 0 ? undefined :
-                piecesOnPosition.length == 1 ? piecesOnPosition[0] :
-                    piecesOnPosition;
+                   piecesOnPosition.length == 1 ? piecesOnPosition[0] :
+                                                  piecesOnPosition;
         };
 
         this.removePieceFromPosition = function (position) {
@@ -955,9 +936,7 @@
                             piece.y = piece.startPosition.y;
                         } else {
 
-                            var sourcePosition = _getPositionLabelFromFileRank(piece.file, piece.rank);
                             var destPosition = _getPositionLabelFromFileRank(file, rank);
-
                             var moved = this.move(piece, destPosition);
 
                             if (!moved) {
@@ -1352,42 +1331,43 @@
                 var allBlocksHeight = blockSize * blocksInAColumn + marginBetweenBlocksSize * (blocksInAColumn - 1);
 
                 return {
-                    canvasId: configuration.canvasId,
-                    canvasWidth: canvasWidth,
-                    canvasHeight: canvasHeight,
-                    canvasSize: configuration.canvasSize,
-                    shadowSize: shadowSize,
-                    borderSize: borderSize,
-                    blockSize: blockSize,
+                    canvasId:                configuration.canvasId,
+                    canvasWidth:             canvasWidth,
+                    canvasHeight:            canvasHeight,
+                    canvasSize:              configuration.canvasSize,
+                    shadowSize:              shadowSize,
+                    borderSize:              borderSize,
+                    blockSize:               blockSize,
                     marginBetweenBlocksSize: marginBetweenBlocksSize,
-                    highlighterSize: blockSize * 0.03,
-                    allBlocksWidth: allBlocksWidth,
-                    allBlocksHeight: allBlocksHeight,
-                    boardPaddingWidthSize: (canvasWidth - allBlocksWidth - (borderSize + shadowSize) * 2) / 2,
-                    boardPaddingHeightSize: (canvasHeight - allBlocksHeight - (borderSize + shadowSize) * 2) / 2,
-                    gridLinesSize: configuration.gridLinesSize || blockSize * 0.03,
-                    blocksInARow: blocksInARow,
-                    blocksInAColumn: blocksInAColumn,
-                    coords: configuration.coords !== false,
-                    type: configuration.type === 'linesGrid' ? 'linesGrid' : configuration.goGame === true ? 'linesGrid' : 'blocksGrid',
-                    lightSquaresColor: configuration.lightSquaresColor || "#EFEFEF",
-                    darkSquaresColor: configuration.darkSquaresColor || "#ABABAB",
-                    linesColor: configuration.linesColor || "#000",
-                    borderColor: configuration.borderColor || "#222",
-                    shadowColor: configuration.shadowColor || "#000",
-                    labelsColor: configuration.labelsColor || "#DDD",
-                    highlighterColor: configuration.highlighterColor || "lightgreen",
-                    marginColor: configuration.marginColor || "#222",
-                    rotationDuration: configuration.rotationDuration === undefined ? 500 : configuration.rotationDuration,
-                    squeezeScaleFactor: configuration.squeezeScaleFactor || 0.7,
-                    animationOfPieces: configuration.animationOfPieces !== false,
-                    piecesFolder: configuration.piecesFolder || "./img",
-                    actionsOnPieces: configuration.actionsOnPieces !== false,
-                    blocksMargin: configuration.blocksMargin || 0,
-                    goGame: configuration.goGame === true,
-                    position: configuration.position,
-                    hooks: configuration.hooks || {},
-                    chessGame: configuration.chessGame
+                    highlighterSize:         blockSize * 0.03,
+                    allBlocksWidth:          allBlocksWidth,
+                    allBlocksHeight:         allBlocksHeight,
+                    boardPaddingWidthSize:   (canvasWidth - allBlocksWidth - (borderSize + shadowSize) * 2) / 2,
+                    boardPaddingHeightSize:  (canvasHeight - allBlocksHeight - (borderSize + shadowSize) * 2) / 2,
+                    gridLinesSize:           configuration.gridLinesSize || blockSize * 0.03,
+                    blocksInARow:            blocksInARow,
+                    blocksInAColumn:         blocksInAColumn,
+                    coords:                  configuration.coords !== false,
+                    type:                    configuration.type === 'linesGrid' || configuration.goGame === true ? 'linesGrid' : 'blocksGrid',
+                    lightSquaresColor:       configuration.lightSquaresColor || "#EFEFEF",
+                    darkSquaresColor:        configuration.darkSquaresColor || "#ABABAB",
+                    linesColor:              configuration.linesColor || "#000",
+                    borderColor:             configuration.borderColor || "#222",
+                    shadowColor:             configuration.shadowColor || "#000",
+                    labelsColor:             configuration.labelsColor || "#DDD",
+                    highlighterColor:        configuration.highlighterColor || "lightgreen",
+                    marginColor:             configuration.marginColor || "#222",
+                    rotationDuration:        configuration.rotationDuration === undefined ? 500 : configuration.rotationDuration,
+                    squeezeScaleFactor:      configuration.squeezeScaleFactor || 0.7,
+                    animationOfPieces:       configuration.animationOfPieces !== false,
+                    piecesFolder:            configuration.piecesFolder || "./img",
+                    piecesFiles:             configuration.piecesFiles || {},
+                    actionsOnPieces:         configuration.actionsOnPieces !== false,
+                    blocksMargin:            configuration.blocksMargin || 0,
+                    goGame:                  configuration.goGame === true,
+                    position:                configuration.position,
+                    hooks:                   configuration.hooks || {},
+                    chessGame:               configuration.chessGame
                 }
             }
 
@@ -1409,7 +1389,7 @@
                     for (var i = 0; i < _configuration.blocksInARow; i++) {
                         var label = "";
                         for (var j = charsInLabel; j > 0; j--) {
-                            label += _alphabet.charAt(Math.floor((i % Math.pow(_alphabet.length, j)) / Math.pow(_alphabet.length, j - 1)));
+                            label += _hBoardLabelsAlphabet.charAt(Math.floor((i % Math.pow(_hBoardLabelsAlphabet.length, j)) / Math.pow(_hBoardLabelsAlphabet.length, j - 1)));
                         }
                         labelsArray.push(label);
                     }
@@ -1456,7 +1436,8 @@
 
                 var blockGraphic = block.graphics;
 
-                blockGraphic.beginStroke(_configuration.linesColor)
+                blockGraphic
+                    .beginStroke(_configuration.linesColor)
                     .setStrokeStyle(_configuration.gridLinesSize);
 
                 if (columnOfBlock !== 0) {

@@ -43,7 +43,7 @@
             blocksInARow: 8,
             blocksInAColumn: 8,
             borderColor: "#EFEFEF",
-            position: "1RRRRRRR/8/8/8/1RRRRRRR/RRRRRRRR/RRRRRRRR/RRRRRRR1",
+            position: "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R",
             //animationOfPieces: false,
             labelsColor: "#000",
             //lightSquaresColor: "#f2b06d",
@@ -53,10 +53,11 @@
             flipDuration: 500,
             squeezeScaleFactor: 0.7,
             hooks: {
-                isValidMove: function() { console.log(arguments); return true; },
-                preMove: function() { console.log(arguments); return 33; },
-                postMove: function() { console.log(arguments); return 55; }
-            }
+                //isValidMove: function() { console.log(arguments); return true; },
+                //preMove: function() { console.log(arguments); return 33; },
+                //postMove: function() { console.log(arguments); return 55; }
+            },
+            piecesFiles: { b: "bb", k: "kb", n: "nb", p: "pb", q: "qb", r: "rb", B: "bw", K: "kw", N: "nw", P: "pw", Q: "qw", R: "rw" }
             //goGame: true
         });
     });
