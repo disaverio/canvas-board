@@ -202,7 +202,8 @@ Example of use:
 myBoard.getNewPiece("p")
     .then(function(requestedPiece) {
          // do stuff with requestedPiece
-    }).catch(function(errorGettingPiece) {
+    })
+    .catch(function(errorGettingPiece) {
          // error handling
     });
 ```
