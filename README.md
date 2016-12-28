@@ -107,10 +107,16 @@ Pieces:
 
 Label of piece corresponds to filename of piece image. **Important:** board supports only .pgn extension, and names (therefore label) of one char.
 
+## Examples
+
+See [examples page](http://canvas-board.andreads.it)!
+
 ## API
 
 ### Constructor: CanvasBoard(configuration)
 See above
+
+-> [example](http://canvas-board.andreads.it/#constructor)
 
 ### .rotate([degrees])
 Rotate the board of _degrees_ degrees from current position, with animation.  
@@ -118,17 +124,23 @@ Rotate the board of _degrees_ degrees from current position, with animation.
 **Parameters:** (degrees: integer) - Optional, default: 180  
 **Returns:** void
 
+-> [example](http://canvas-board.andreads.it/#rotate)
+
 ### .setRotation([degrees])
 Set rotation of board to _degrees_ degrees, without animation.
 
 **Parameters:** (degrees: integer) - Optional, default: 0  
 **Returns:** void
 
+-> [example](http://canvas-board.andreads.it/#setRotation)
+
 ### .scale(scaleFactor)
 Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mandatory number.
 
 **Parameters:** (scaleFactor: number > 0) - Mandatory  
 **Returns:** void
+
+-> [example](http://canvas-board.andreads.it/#scale)
 
 ### .setPosition([position])
 Set pieces on board according to position passed as parameter. _position_ is an optional string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (coherent to current board dimensions): if no value is passed then board is cleaned.
@@ -137,11 +149,15 @@ Each char of string indicates label of a piece. Only labels of one char are acce
 **Parameters:** (position: string) - Optional, default: nothing, clear the board  
 **Returns:** void
  
+ -> [example](http://canvas-board.andreads.it/#setPosition)
+ 
 ### .getPosition()
 Returns current position of board, in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation.
 
 **Parameters:** void  
 **Returns:** string
+
+-> [example](http://canvas-board.andreads.it/#getPosition)
 
 ### .move(startingSquare, endingSquare)
 Move a piece from _startingSquare_ square to _endingSquare_ square. _startingSquare_ and _endingSquare_ parameters are strings in the form of board coords, e.g. like "H7".
