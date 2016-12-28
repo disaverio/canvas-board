@@ -83,9 +83,19 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         canvasId: "ex9",
         canvasSize: 510,
         highlighterColor: "#000",
+        actionsOnPieces: false,
         piecesFiles: {
             p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
         }
+    });
+    board10 = new CanvasBoard({
+        canvasId: "ex10",
+        canvasSize: 510,
+        highlighterColor: "#000",
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        },
+        position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8"
     });
 });
 function tryFunction(f) {
@@ -107,6 +117,9 @@ function tryFunction(f) {
             break;
         case "setPosition":
             board9.setPosition(document.getElementById("input9").value);
+            break;
+        case "getPosition":
+            alert("Retrieved position:\n\n"+board10.getPosition());
             break;
     }
 }

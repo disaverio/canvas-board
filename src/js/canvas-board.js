@@ -170,25 +170,25 @@
      *  piecesFolder,       // relative (to html page) path to pieces images    | string            | optional - default: "./img"
      *  piecesFiles: {      // to define pieces filenames if != pieceLabel      | object            | optional - default: piece filename corresponds to pieceLabel
      *      key: value,     // key is piaceLabel, value is filename without ext | strings pair      | optional - set a key/value pair for each piece with label different from filename
-     *      ...             //
-     *  },                  //
+     *      ...             //                                                  |                   |
+     *  },                  //                                                  |                   |
      *  position,           // starting position in FEN-like notation           | string            | optional - default: no pieces on board
      *  goGame,             // specify if board has to be optimized for go game | boolean           | optional - default: false. if true then type is automatically set to 'linesGrid'
      *  hooks: {            // object with functions hooks                      | object            | optional - default: no hooks
-     *      isValidMove,    // function executed on .move() invocation. if returns true then .move() is executed, otherwise no.
+     *      isValidMove,    //                                                  | function          | optional - no default: isValidMove is not executed
+     *                      // function executed on .move() invocation. if returns true, or if is not defined, then .move() is executed, otherwise no
      *                      // signature: function isValidMove({String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
-     *                      //                                                  | function          | optional - default: undefined, .move() is executed
-     *      preMove,        // function executed on .move() invocation, right after eventual .isValidMove() execution (if true is returned) and before .move() execution.
+     *      preMove,        //                                                  | function          | optional - no default: preMove is not executed
+     *                      // function executed on .move() invocation, right after eventual .isValidMove() execution (if true is returned) and before .move() execution
      *                      // signature: function preMove({String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
-     *                      //                                                  | function          | optional - default: undefined. nothing is executed
-     *      postMove        // function executed on .move() invocation, right after .move() execution
+     *      postMove        //                                                  | function          | optional - no default: postMove is not executed
+     *                      // function executed on .move() invocation, right after .move() execution.
      *                      // signature: function postMove({?} returnedFromPreMove, {Boolean} returnedFromMove, {String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
-     *                      //                                                  | function          | optional - default: undefined. nothing is executed
-     *  },                  //
-     *  chessGame: {        // to define properties for chess optimization      | object            | optional - default: undefined. board is not optimized for chess
-     *      pawnLabel,      // label of pawn, used in filename of piece         | string            | optional - default: no movement optimization for pawn
-     *      bishopLabel,    // label of bishop, used in filename of piece       | string            | optional - default: no movement optimization for bishop
-     *      rookLabel       // label of rook, used in filename of piece         | string            | optional - default: no movement optimization for rook
+     *  },                  //                                                  |                   |
+     *  chessGame: {        // to define properties for chess optimization      | object            | optional - no default: board is not optimized for chess
+     *      pawnLabel,      // label of pawn, used in filename of piece         | string            | optional - no default: no movement optimization for pawn
+     *      bishopLabel,    // label of bishop, used in filename of piece       | string            | optional - no default: no movement optimization for bishop
+     *      rookLabel       // label of rook, used in filename of piece         | string            | optional - no default: no movement optimization for rook
      *  }
      * }
      */
@@ -204,8 +204,8 @@
             _loadingPieces = {},
             _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-        function __getNumberOfChars(numberOfElements, numbersOfSymbols) {
-            return Math.ceil(Math.log(numberOfElements) / Math.log(numbersOfSymbols));
+        function __getNumberOfChars(numberOfElements, numberOfSymbols) {
+            return Math.ceil(Math.log(numberOfElements) / Math.log(numberOfSymbols));
         }
 
         function _getNumberOfCharsInHorizontalBoardLabels() {
@@ -261,6 +261,38 @@
             };
         }
 
+        function _isPositionLabel(string) {
+            /*
+             * check if passed param is a valid position label
+             */
+
+            if (typeof arguments[0] !== 'string') {
+                return false;
+            }
+
+            var charsInHorizontalLabel = _getNumberOfCharsInHorizontalBoardLabels();
+
+            var fileLabel = string.substr(0, charsInHorizontalLabel);
+            var file = 0;
+            for (var i = 0; i < charsInHorizontalLabel; i++) {
+                var charIndex = _hBoardLabelsAlphabet.indexOf(fileLabel.charAt(i));
+                if (charIndex < 0) {
+                    return false;
+                }
+                file += charIndex * Math.pow(_hBoardLabelsAlphabet.length, charsInHorizontalLabel - (i + 1));
+            }
+            if (file >= _configuration.blocksInARow) {
+                return false;
+            }
+
+            var rankLabel = string.substr(charsInHorizontalLabel);
+            if (!Number.isInteger(parseInt(rankLabel, 10)) || parseInt(rankLabel, 10) < 1 || parseInt(rankLabel, 10) > _configuration.blocksInAColumn) {
+                return false;
+            }
+
+            return true;
+        }
+
         function _isArray(object) {
             if (Array.isArray)
                 return Array.isArray(object);
@@ -269,7 +301,11 @@
         }
 
         function _isPiece(object) {
-            return typeof object === 'object' && object.label;
+            if (typeof object === 'object' && object.label && _piecesBox[object.label]) {
+                return true;
+            } else {
+                return false;
+            }
         }
 
         function _createPiece(pieceLabel) {
@@ -310,25 +346,28 @@
                 }
 
                 _loadingPieces[pieceLabel].deferreds.push(deferred);
-                return deferred.promise;
+
+            } else {
+                deferred.resolve(_piecesBox[pieceLabel]);
             }
 
-            deferred.resolve(_piecesBox[pieceLabel]);
             return deferred.promise;
         }
 
         this.rotate = function (degrees) {
 
-            if (degrees !== undefined && !Number.isInteger(degrees))
-                throw new Error("Passed value is not an integer.");
+            if (degrees !== undefined && !Number.isInteger(degrees)) {
+                throw new Error("rotate: passed value is not an integer.");
+            }
 
             _rotationDegrees = degrees || 180;
         };
 
         this.setRotation = function (degrees) {
 
-            if (degrees !== undefined && !Number.isInteger(degrees))
-                throw new Error("Passed value is not an integer.");
+            if (degrees !== undefined && !Number.isInteger(degrees)) {
+                throw new Error("setRotation: passed value is not an integer.");
+            }
 
             degrees = degrees || 0;
 
@@ -350,7 +389,7 @@
         this.scale = function (scaleFactor) {
 
             if (scaleFactor === undefined || isNaN(scaleFactor) || scaleFactor < 0) {
-                throw new Error("Invalid scale parameter.");
+                throw new Error("scale: invalid scale parameter.");
             }
 
             _canvas.width = _configuration.canvasWidth * scaleFactor;
@@ -560,11 +599,9 @@
              */
 
             var currentBoard = [];
-
             for (var i = 0; i < _configuration.blocksInARow; i++) { // add an array for each column
                 currentBoard.push([]);
             }
-
             for (var i = 0; i < _piecesContainer.getNumChildren(); i++) {
                 var piece = _piecesContainer.getChildAt(i);
                 if (piece.rank != undefined && piece.file != undefined)
@@ -572,7 +609,6 @@
             }
 
             var fen = '';
-
             for (var i = _configuration.blocksInAColumn - 1; i >= 0; i--) {
                 if (i != _configuration.blocksInAColumn - 1)
                     fen += '/';
@@ -603,7 +639,7 @@
              *   3. (["H3", "G3"], [piece, "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
              */
 
-            if (arguments.length == 2 && (typeof arguments[0] === 'string' || _isPiece(arguments[0])) && typeof arguments[1] === 'string') { // method overload
+            if (arguments.length == 2 && (_isPositionLabel(arguments[0]) || _isPiece(arguments[0])) && _isPositionLabel(arguments[1])) { // method overload
                 return this.move([arguments[0], arguments[1]]);
             }
 
@@ -617,7 +653,7 @@
                 if (_isPiece(movement[0])) {
                     positionFrom = _getPositionLabelFromFileRank(movement[0].file, movement[0].rank);
                     piecesAtStartingPosition = [movement[0]];
-                } else {
+                } else if (_isPositionLabel(movement[0])) {
                     positionFrom = movement[0];
                     piecesAtStartingPosition = this.getPieceAtPosition(positionFrom);
                     if (piecesAtStartingPosition) {
@@ -627,6 +663,12 @@
                     } else {
                         return;
                     }
+                } else {
+                    return;
+                }
+
+                if (!_isPositionLabel(movement[1])) {
+                    return;
                 }
 
                 var piecesAtDestination = this.getPieceAtPosition(movement[1]);
@@ -678,7 +720,7 @@
              *   2. ([piece1, "H7"], [piece2, "G3"], .....) // list of arrays of two elements (as above) for multiple moves simultaneously
              */
 
-            if (arguments.length == 2 && _piecesBox[arguments[0].label] && typeof arguments[1] === 'string') { // method overload
+            if (arguments.length == 2 && _isPiece(arguments[0]) && _isPositionLabel(arguments[1])) { // method overload
                 return this.setPieceAtPosition([arguments[0], arguments[1]]);
             }
 
@@ -689,20 +731,17 @@
             var thereArePiecesToMove = false;
 
             movements.forEach((function (movement) {
+
+                if (!_isPiece(movement[0]) || !_isPositionLabel(movement[1])) {
+                    return;
+                }
+
                 var piece = movement[0];
                 var position = movement[1];
 
-                if (!piece)
-                    return;
-
                 var numericPosition = _getFileRankFromPositionLabel(position);
-
                 var file = numericPosition.file;
                 var rank = numericPosition.rank;
-
-                if (file < 0 || file > _configuration.blocksInARow || rank < 0 || rank > _configuration.blocksInAColumn) {
-                    return;
-                }
 
                 if (!_piecesContainer.contains(piece)) {
                     if (!piece.x || !piece.y) { // a new piece (with no x,y coords) is immediately placed in the position without movement
@@ -752,6 +791,10 @@
              *          - undefined if no piece is in position
              */
 
+            if (!_isPositionLabel(position)) {
+                throw new Error("getPieceAtPosition: invalid position.")
+            }
+
             var numericPosition = _getFileRankFromPositionLabel(position);
 
             var file = numericPosition.file;
@@ -774,10 +817,15 @@
         this.removePieceFromPosition = function (position) {
             // remove all pieces from position passed as parameter
 
+            if (!_isPositionLabel(position)) {
+                throw new Error("removePieceFromPosition: invalid position.")
+            }
+
             var pieces = this.getPieceAtPosition(position);
 
-            if (!pieces)
+            if (!pieces) {
                 return false;
+            }
 
             if (!_isArray(pieces)) {
                 pieces = [pieces];
@@ -973,8 +1021,9 @@
              *          |--_piecesContainer     -> added to _containersToRotate
              */
 
-            if (!configuration || !configuration.canvasId)
+            if (!configuration || !configuration.canvasId) {
                 throw new Error("CanvasBoard: configuration object and canvasId property are mandatory.");
+            }
 
             _canvas = document.getElementById(configuration.canvasId);
 
@@ -1272,7 +1321,6 @@
 
                 };
             })());
-
             createjs.Ticker.setFPS(40);
 
             _update = true;
@@ -1489,6 +1537,7 @@
                         .drawCircle(_configuration.blockSize / 2, _configuration.blockSize / 2, _configuration.gridLinesSize * 2.5);
                 }
             }
+
         }).bind(this))();
     };
 });

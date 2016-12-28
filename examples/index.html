@@ -11,9 +11,11 @@
             -webkit-box-sizing: border-box;
         }
         body            { margin: 10px 0; }
+        h1              { min-width: 590px; float: right; }
         canvas, pre, p  { float: right; display: block }
         pre, p          { width: 510px; }
         hr              { width: 50% }
+        .title          { min-width: 590px; width: 50%; float: left; }
         .column         { padding: 0 20px; min-width: 590px; width: 50%; float: left; }
         .inner          { width: 550px; }
         .left           { float: right; }
@@ -30,7 +32,8 @@
     <script src="examples.js"></script>
 </head>
 <body>
-    <h1>Constructor</h1>
+    <div class="title"><h1>Constructor</h1></div>
+    <div style="clear: both"></div>
 
     <div>
         <div class="column">
@@ -45,7 +48,7 @@
                 <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex1",
-        canvasWidth: 550,
+        canvasWidth: 510,
         canvasHeight: 400,
         blocksInARow: 10,
         blocksInAColumn: 6
@@ -73,7 +76,7 @@
                 <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex2",
-        canvasSize: 550,
+        canvasSize: 510,
         goGame: true,
         blocksInARow: 19,
         lightSquaresColor: "#f2b06d",
@@ -82,12 +85,12 @@
                 </code></pre>
                 <div style="clear: both"></div>
                 <h4>Description</h4>
-                <p>19x19 board for game of Go with custom background color and no border.</p>
+                <p>19x19 board for Go game with custom background color and no border.</p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
-    <div style="clear: both"></div>
-    <hr />
 
     <div>
         <div class="column">
@@ -102,7 +105,7 @@
                 <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex3",
-        canvasSize: 550,
+        canvasSize: 510,
         blocksInARow: 91,
         blocksMargin: 1,
         marginColor: "#666",
@@ -116,9 +119,9 @@
                 <p>91x91 grid with margin between blocks of 1 pixel dimension and "#666" as margin color.</p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
-    <div style="clear: both"></div>
-    <hr />
 
     <div>
         <div class="column">
@@ -149,9 +152,9 @@
                 <p>13x13 Go board with starting position and border, without animation nor pieces interaction.</p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
-    <div style="clear: both"></div>
-    <hr />
 
     <div>
         <div class="column">
@@ -182,11 +185,13 @@
                 <p>12x12 checkers board with pieces interaction (no game logic) and animations. Checkers pieces remapping of filenames: filename of white piece is <i>checkers_white.png</i>, filename of black piece is <i>checkers_black.pgn</i>.</p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
-    <div style="clear: both"></div>
-    <hr />
 
-    <h1>.rotate([degrees])</h1>
+    <div class="title"><h1>.rotate([degrees])</h1></div>
+    <div style="clear: both"></div>
+
     <div>
         <div class="column">
             <div class="inner left">
@@ -213,11 +218,13 @@
                 </p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
-    <div style="clear: both"></div>
-    <hr />
 
-    <h1>.setRotation([degrees])</h1>
+    <div class="title"><h1>.setRotation([degrees])</h1></div>
+    <div style="clear: both"></div>
+
     <div>
         <div class="column">
             <div class="inner left">
@@ -246,11 +253,13 @@
                 </p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
-    <div style="clear: both"></div>
-    <hr />
 
-    <h1>.scale(scaleFactor)</h1>
+    <div class="title"><h1>.scale(scaleFactor)</h1></div>
+    <div style="clear: both"></div>
+
     <div>
         <div class="column">
             <div class="inner left">
@@ -279,11 +288,13 @@
                 </p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
-    <div style="clear: both"></div>
-    <hr />
 
-    <h1>.setPosition(position)</h1>
+    <div class="title"><h1>.setPosition(position)</h1></div>
+    <div style="clear: both"></div>
+
     <div>
         <div class="column">
             <div class="inner left">
@@ -299,6 +310,7 @@
         canvasId: "ex9",
         canvasSize: 510,
         highlighterColor: "#000",
+        actionsOnPieces: false,
         piecesFiles: {
             p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
         }
@@ -310,14 +322,53 @@
                 <div style="clear: both"></div>
                 <h4>Try it</h4>
                 <p>
-                    Position (FEN format coherent to board dimensions):<br />
+                    Position (FEN format coherent to board dimensions).<br />Empty string to clear the board:<br />
                     <input id="input9" value="2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8" type="text" style="width: 100%"/><br />
                     <button onclick="tryFunction('setPosition')">Set position</button>
                 </p>
             </div>
         </div>
+        <div style="clear: both"></div>
+        <hr />
     </div>
+
+    <div class="title"><h1>.getPosition()</h1></div>
     <div style="clear: both"></div>
-    <hr />
+
+    <div>
+        <div class="column">
+            <div class="inner left">
+                <h4>Board</h4>
+                <canvas id="ex10"></canvas>
+            </div>
+        </div>
+        <div class="column">
+            <div class="inner right">
+                <h4>Code</h4>
+                <pre><code class="javascript">
+    var board10 = new CanvasBoard({
+        canvasId: "ex10",
+        canvasSize: 510,
+        highlighterColor: "#000",
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        },
+        position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8"
+    });
+                </code></pre>
+                <pre><code class="javascript">
+    board10.getPosition()
+                </code></pre>
+                <div style="clear: both"></div>
+                <h4>Try it</h4>
+                <p>
+                    Move pieces on board to change position:
+                    <button onclick="tryFunction('getPosition')">Get position</button>
+                </p>
+            </div>
+        </div>
+        <div style="clear: both"></div>
+        <hr />
+    </div>
 </body>
 </html>

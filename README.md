@@ -134,7 +134,7 @@ Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mand
 Set pieces on board according to position passed as parameter. _position_ is an optional string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (coherent to current board dimensions): if no value is passed then board is cleaned.
 Each char of string indicates label of a piece. Only labels of one char are accepted.
 
-**Parameters:** (position: string) - Optional, default: nothing, clear the board 
+**Parameters:** (position: string) - Optional, default: nothing, clear the board  
 **Returns:** void
  
 ### .getPosition()
