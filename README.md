@@ -6,6 +6,10 @@ It exposes API and hooks for integration with some game logic, move validator or
 
 Implementation adopts [EaselJS 0.8.2](http://www.createjs.com/easeljs) 2D graphic library as dependency.
 
+## Examples
+
+See [examples page](http://canvas-board.andreads.it)!
+
 ## Installation
 
 Direct include:
@@ -106,10 +110,6 @@ Special parameters:
 Pieces:
 
 Label of piece corresponds to filename of piece image. **Important:** board supports only .pgn extension, and names (therefore label) of one char.
-
-## Examples
-
-See [examples page](http://canvas-board.andreads.it)!
 
 ## API
 
