@@ -3,7 +3,7 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
     new CanvasBoard({
         canvasId: "ex1",
         canvasWidth: 510,
-        canvasHeight: 400,
+        canvasHeight: 350,
         blocksInARow: 10,
         blocksInAColumn: 6
     });
@@ -101,10 +101,10 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
 function tryFunction(f) {
     switch (f) {
         case "rotate":
-            board6.rotate(parseInt(document.getElementById("input6").value));
+            board6.rotate(document.getElementById("input6").value ? parseInt(document.getElementById("input6").value) : undefined);
             break;
         case "setRotation":
-            board7.setRotation(parseInt(document.getElementById("input7").value));
+            board7.setRotation(document.getElementById("input7").value ? parseInt(document.getElementById("input7").value) : undefined);
             break;
         case "setRotationSlider":
             board7.setRotation(parseInt(document.getElementById("input7slider").value));
