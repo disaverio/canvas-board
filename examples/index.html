@@ -5,19 +5,20 @@
     <title>canvas-board</title>
 
     <style>
-        * {
-            box-sizing: border-box;
-            -moz-box-sizing: border-box;
-            -webkit-box-sizing: border-box;
+        *               { box-sizing: border-box; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; }
+        @media (max-width: 1179px) {
+            #main       { width: 590px; }
+        }
+        @media (min-width: 1180px) {
+            #main       { width: 1180px; }
+            .col        { float: left; }
         }
         body            { margin: 10px 0; }
-        canvas, pre, p  { float: right; display: block }
-        pre, p          { width: 510px; }
+        canvas          { margin-left: 20px; }
+        pre, p          { width: 510px; margin-left: 20px; }
         hr              { width: 50% }
-        .column         { padding: 0 20px; min-width: 590px; width: 50%; float: left; }
-        .inner          { width: 550px; }
-        .left           { float: right; }
-        .right          { float: left; }
+        #main           { margin: auto; }
+        .col            { width: 590px; padding: 0 20px; }
     </style>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/github.min.css">
@@ -30,79 +31,64 @@
     <script src="examples.js"></script>
 </head>
 <body>
-    <h1>Constructor</h1>
 
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex1"></canvas>
-            </div>
+    <div id="main">
+        <h1 id="constructor">Constructor</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex1"></canvas>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex1",
-        canvasWidth: 550,
-        canvasHeight: 400,
+        canvasWidth: 510,
+        canvasHeight: 350,
         blocksInARow: 10,
         blocksInAColumn: 6
     });
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Description</h4>
-                <p>General 10x6 board with border and labels, and default colors.</p>
-            </div>
+            </code></pre>
+
+            <h4>Description</h4>
+            <p>General 10x6 board with border, labels and default colors.</p>
         </div>
         <div style="clear: both"></div>
         <hr />
-    </div>
 
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex2"></canvas>
-            </div>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex2"></canvas>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex2",
-        canvasSize: 550,
+        canvasSize: 510,
         goGame: true,
         blocksInARow: 19,
         lightSquaresColor: "#f2b06d",
         borderSize: 0
     });
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Description</h4>
-                <p>19x19 board for game of Go with custom background color and no border.</p>
-            </div>
-        </div>
-    </div>
-    <div style="clear: both"></div>
-    <hr />
+           </code></pre>
 
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex3"></canvas>
-            </div>
+            <h4>Description</h4>
+            <p>19x19 board for Go game with custom background color and no border.</p>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div style="clear: both"></div>
+        <hr />
+
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex3"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex3",
-        canvasSize: 550,
+        canvasSize: 510,
         blocksInARow: 91,
         blocksMargin: 1,
         marginColor: "#666",
@@ -110,27 +96,21 @@
         darkSquaresColor: "#EFEFEF",
         borderSize: 0
     });
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Description</h4>
-                <p>91x91 grid with margin between blocks of 1 pixel dimension and "#666" as margin color.</p>
-            </div>
-        </div>
-    </div>
-    <div style="clear: both"></div>
-    <hr />
+           </code></pre>
 
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex4"></canvas>
-            </div>
+            <h4>Description</h4>
+            <p>91x91 grid with margin between blocks of 1 pixel dimension and "#666" as margin color.</p>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div style="clear: both"></div>
+        <hr />
+
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex4"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex4",
         canvasSize: 510,
@@ -139,177 +119,186 @@
         animationOfPieces: false,
         actionsOnPieces: false,
         lightSquaresColor: "#f2b06d",
-        position: "www10/ggwww1w6/g1gwgwwg5/1gggggww5/4gwgg5/4gwwgw4/2g2gww5/5gw6/5ggw5/4gwgg5/4gwwgw4/1gggggww5/ggwww1w6",
+        position: "www10/bbwww1w6/b1bwbwwb5/1bbbbbww5/4bwbb5/4bwwbw4/2b2bww5/5bw6/5bbw5/4bwbb5/4bwwbw4/1bbbbbww5/bbwww1w6",
         borderColor: "#f2b06d",
         coords: false
     });
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Description</h4>
-                <p>13x13 Go board with starting position and border, without animation nor pieces interaction.</p>
-            </div>
-        </div>
-    </div>
-    <div style="clear: both"></div>
-    <hr />
+           </code></pre>
 
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex5"></canvas>
-            </div>
+            <h4>Description</h4>
+            <p>13x13 Go board with starting position and border, without animation nor pieces interaction.</p>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div style="clear: both"></div>
+        <hr />
+
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex5"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     new CanvasBoard({
         canvasId: "ex5",
         canvasSize: 510,
         borderColor: "#EFEFEF",
         labelsColor: "#000",
         highlighterColor: "#000",
-        position: "1c1c1c1c/c1c1c1c1/1c1c1c1c/8/8/d1d1d1d1/1d1d1d1d/d1d1d1d1"
+        position: "1w1w1w1w/w1w1w1w1/1w1w1w1w/8/8/b1b1b1b1/1b1b1b1b/b1b1b1b1",
+        piecesFiles: {
+            b: "checkers_black",
+            w: "checkers_white"
+        }
     });
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Description</h4>
-                <p>12x12 checkers board with pieces interaction (no game logic) and animations.</p>
-            </div>
-        </div>
-    </div>
-    <div style="clear: both"></div>
-    <hr />
+           </code></pre>
 
-    <h1>.rotate([degrees])</h1>
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex6"></canvas>
-            </div>
+            <h4>Description</h4>
+            <p>12x12 checkers board with pieces interaction (no game logic) and animations. Checkers pieces remapping of filenames: filename of white piece is <i>checkers_white.png</i>, filename of black piece is <i>checkers_black.pgn</i>.</p>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div style="clear: both"></div>
+        <hr />
+
+        <h1 id="rotate">.rotate([degrees])</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex6"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     var board6 = new CanvasBoard({
         canvasId: "ex6",
         ...
     });
-                </code></pre>
-                <pre><code class="javascript">
+            </code></pre>
+            <pre><code class="javascript">
     board6.rotate([degrees])
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Try it</h4>
-                <p>
-                Degrees:<input id="input6" value="90" type="text" /><button onclick="tryFunction('rotate')">Rotate</button>
-                </p>
-            </div>
-        </div>
-    </div>
-    <div style="clear: both"></div>
-    <hr />
+            </code></pre>
 
-    <h1>.setRotation([degrees])</h1>
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex7"></canvas>
-            </div>
+            <h4>Try it</h4>
+            <p>Degrees:<input id="input6" value="90" type="text" /><button onclick="tryFunction('rotate')">Rotate</button></p>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div style="clear: both"></div>
+        <hr />
+
+        <h1 id="setRotation">.setRotation([degrees])</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex7"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     var board7 = new CanvasBoard({
         canvasId: "ex7",
         ...
     });
-                </code></pre>
-                <pre><code class="javascript">
+            </code></pre>
+            <pre><code class="javascript">
     board7.setRotation([degrees])
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Try it</h4>
-                <p>
-                    Degrees:<input id="input7" value="45" type="text" /><button onclick="tryFunction('setRotation')">Set rotation</button>
-                    <br /><br />or:<br /><br />
-                    <input id="input7slider" type="range" min="0" max="360" step="1" value="0" oninput="tryFunction('setRotationSlider')" />
-                </p>
-            </div>
-        </div>
-    </div>
-    <div style="clear: both"></div>
-    <hr />
+            </code></pre>
 
-    <h1>.scale(scaleFactor)</h1>
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex8"></canvas>
-            </div>
+            <h4>Try it</h4>
+            <p>
+                Degrees:<input id="input7" value="45" type="text" /><button onclick="tryFunction('setRotation')">Set rotation</button>
+                <br /><br />or:<br /><br />
+                <input id="input7slider" type="range" min="0" max="360" step="1" value="0" oninput="tryFunction('setRotationSlider')" />
+            </p>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div style="clear: both"></div>
+        <hr />
+
+        <h1 id="scale">.scale(scaleFactor)</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex8"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     var board8 = new CanvasBoard({
         canvasId: "ex8",
         ...
     });
-                </code></pre>
-                <pre><code class="javascript">
+            </code></pre>
+            <pre><code class="javascript">
     board8.scale(scaleFactor)
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Try it</h4>
-                <p>
-                    Scale factor:<input id="input8" value="0.5" type="text" /><button onclick="tryFunction('scale')">Scale</button>
-                    <br /><br />or:<br /><br />
-                    <input id="input8slider" type="range" min="0.5" max="2" step="0.01" value="1" oninput="tryFunction('scaleSlider')" />
-                </p>
-            </div>
-        </div>
-    </div>
-    <div style="clear: both"></div>
-    <hr />
+            </code></pre>
 
-    <h1>.setPosition(position)</h1>
-    <div>
-        <div class="column">
-            <div class="inner left">
-                <h4>Board</h4>
-                <canvas id="ex9"></canvas>
-            </div>
+            <h4>Try it</h4>
+            <p>
+                Scale factor:<input id="input8" value="0.5" type="text" /><button onclick="tryFunction('scale')">Scale</button>
+                <br /><br />or:<br /><br />
+                <input id="input8slider" type="range" min="0.5" max="2" step="0.01" value="1" oninput="tryFunction('scaleSlider')" />
+            </p>
         </div>
-        <div class="column">
-            <div class="inner right">
-                <h4>Code</h4>
-                <pre><code class="javascript">
+        <div style="clear: both"></div>
+        <hr />
+
+        <h1 id="setPosition">.setPosition(position)</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex9"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
     var board9 = new CanvasBoard({
         canvasId: "ex9",
-        ...
+        canvasSize: 510,
+        highlighterColor: "#000",
+        actionsOnPieces: false,
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        }
     });
-                </code></pre>
-                <pre><code class="javascript">
+            </code></pre>
+            <pre><code class="javascript">
     board9.setPosition(position)
-                </code></pre>
-                <div style="clear: both"></div>
-                <h4>Try it</h4>
-                <p>
-                    Position (FEN format coherent to board dimensions):<br />
-                    <input id="input9" value="2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8" type="text" style="width: 100%"/><br />
-                    <button onclick="tryFunction('setPosition')">Set position</button>
-                </p>
-            </div>
+            </code></pre>
+
+            <h4>Try it</h4>
+            <p>
+                Position (FEN format coherent to board dimensions).<br />Empty string to clear the board:<br />
+                <input id="input9" value="2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8" type="text" style="width: 100%"/><br />
+                <button onclick="tryFunction('setPosition')">Set position</button>
+            </p>
         </div>
+        <div style="clear: both"></div>
+        <hr />
+
+        <h1 id="getPosition">.getPosition()</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex10"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
+    var board10 = new CanvasBoard({
+        canvasId: "ex10",
+        canvasSize: 510,
+        highlighterColor: "#000",
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        },
+        position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8"
+    });
+            </code></pre>
+            <pre><code class="javascript">
+    board10.getPosition()
+            </code></pre>
+
+            <h4>Try it</h4>
+            <p>
+                Move pieces on board to change position:
+                <button onclick="tryFunction('getPosition')">Get position</button>
+            </p>
+        </div>
+        <div style="clear: both"></div>
+        <hr />
+
     </div>
-    <div style="clear: both"></div>
-    <hr />
+
 </body>
 </html>
