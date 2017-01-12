@@ -8,7 +8,7 @@ Implementation adopts [EaselJS 0.8.2](http://www.createjs.com/easeljs) 2D graphi
 
 ## Examples
 
-See [examples page](http://canvas-board.andreads.it)!
+See [examples page](https://disaverio.github.io/canvas-board/examples/index.html)!
 
 ## Installation
 
@@ -116,7 +116,7 @@ Label of piece corresponds to filename of piece image. **Important:** board supp
 ### Constructor: CanvasBoard(configuration)
 See above
 
--> [example](http://canvas-board.andreads.it/#constructor)
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#constructor)
 
 ### .rotate([degrees])
 Rotate the board of _degrees_ degrees from current position, with animation.  
@@ -124,7 +124,7 @@ Rotate the board of _degrees_ degrees from current position, with animation.
 **Parameters:** (degrees: integer) - Optional, default: 180  
 **Returns:** void
 
--> [example](http://canvas-board.andreads.it/#rotate)
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#rotate)
 
 ### .setRotation([degrees])
 Set rotation of board to _degrees_ degrees, without animation.
@@ -132,7 +132,7 @@ Set rotation of board to _degrees_ degrees, without animation.
 **Parameters:** (degrees: integer) - Optional, default: 0  
 **Returns:** void
 
--> [example](http://canvas-board.andreads.it/#setRotation)
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#setRotation)
 
 ### .scale(scaleFactor)
 Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mandatory number.
@@ -140,7 +140,7 @@ Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mand
 **Parameters:** (scaleFactor: number > 0) - Mandatory  
 **Returns:** void
 
--> [example](http://canvas-board.andreads.it/#scale)
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#scale)
 
 ### .setPosition([position])
 Set pieces on board according to position passed as parameter. _position_ is an optional string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (coherent to current board dimensions): if no value is passed then board is cleaned.
@@ -149,7 +149,7 @@ Each char of string indicates label of a piece. Only labels of one char are acce
 **Parameters:** (position: string) - Optional, default: nothing, clear the board  
 **Returns:** void
  
- -> [example](http://canvas-board.andreads.it/#setPosition)
+ -> [example](https://disaverio.github.io/canvas-board/examples/index.html#setPosition)
  
 ### .getPosition()
 Returns current position of board, in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation.
@@ -157,7 +157,7 @@ Returns current position of board, in [FEN](https://en.wikipedia.org/wiki/Forsyt
 **Parameters:** void  
 **Returns:** string
 
--> [example](http://canvas-board.andreads.it/#getPosition)
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#getPosition)
 
 ### .move(startingSquare, endingSquare)
 Move a piece from _startingSquare_ square to _endingSquare_ square. _startingSquare_ and _endingSquare_ parameters are strings in the form of board coords, e.g. like "H7".
