@@ -406,7 +406,7 @@
             /*
              * input: fen-like string that describes position.
              * output: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
-             *          If a position has no pieces the corresponding element is undefined.
+             *         If a position has no pieces the corresponding element is undefined.
              */
 
             var rows = fenPosition.split("/");
@@ -431,7 +431,7 @@
                 }
                 newBoard.push(col);
             }
-            for (var i = 0; i < numberOfRows; i++) { // for each row
+            for (var i = 0; i < numberOfRows; i++) {
                 var temp = 0;
                 for (var j = 0; j < rows[i].length;) {
                     if (isNaN(rows[i][j])) {
@@ -1089,8 +1089,9 @@
                         piece.y = pt.y;
 
                         var currentSquare = undefined;
-                        if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn)
+                        if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn) {
                             currentSquare = file + _configuration.blocksInARow * rank;
+                        }
 
                         if (currentSquare != piece.currentSquare) {
                             boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
@@ -1139,8 +1140,9 @@
                         boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
 
                         var currentSquare;
-                        if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn)
+                        if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn) {
                             currentSquare = file + _configuration.blocksInARow * rank;
+                        }
 
                         if (!currentSquare) {
                             piece.x = piece.startPosition.x;
@@ -1213,9 +1215,9 @@
                     .beginStroke(_configuration.borderColor)
                     .setStrokeStyle(_configuration.borderSize)
                     .drawRect(_configuration.borderSize / 2 + _configuration.shadowSize + _configuration.boardPaddingWidthSize,
-                        _configuration.borderSize / 2 + _configuration.shadowSize + _configuration.boardPaddingHeightSize,
-                        _configuration.allBlocksWidth + _configuration.borderSize,
-                        _configuration.allBlocksHeight + _configuration.borderSize);
+                              _configuration.borderSize / 2 + _configuration.shadowSize + _configuration.boardPaddingHeightSize,
+                              _configuration.allBlocksWidth + _configuration.borderSize,
+                              _configuration.allBlocksHeight + _configuration.borderSize);
                 border.shadow = new createjs.Shadow(_configuration.shadowColor, 0, 0, 15);
 
                 borderContainer.addChild(border);

@@ -166,9 +166,15 @@
         <div class="col">
             <h4>Code</h4>
             <pre><code class="javascript">
-    var board6 = new CanvasBoard({
+    var board6 =new CanvasBoard({
         canvasId: "ex6",
-        ...
+        canvasSize: 510,
+        goGame: true,
+        blocksInARow: 19,
+        lightSquaresColor: "#f2b06d",
+        position: "3w2w1w10/1b3bw2ww1w6/1b1bwb1ww1wwbb5/1bb2bbwb2bww5/4bwb2w1bbb5/4b2wwwwb1bw4/2bbb2bbw2w5w/bbwb5bwwwbb4/wwwb5bbbw5b/wwb1wb4bwbb5/1wwwbb4bwwbw4/wwwbbb1bbbbbww5/4bbbbwww1w6/1b1bwb1ww1wwbb5/2bbb2bbw2w5w/4bwb2w1bbb5/1wwwbb4bwwbw4/1b3bw2ww1w6/2wbbbww3wwb4b",
+        borderColor: "#f2b06d",
+        borderSize: 9
     });
             </code></pre>
             <pre><code class="javascript">
@@ -191,7 +197,9 @@
             <pre><code class="javascript">
     var board7 = new CanvasBoard({
         canvasId: "ex7",
-        ...
+        canvasSize: 510,
+        borderColor: "#EFEFEF",
+        labelsColor: "#000"
     });
             </code></pre>
             <pre><code class="javascript">
@@ -218,7 +226,14 @@
             <pre><code class="javascript">
     var board8 = new CanvasBoard({
         canvasId: "ex8",
-        ...
+        canvasSize: 510,
+        borderColor: "#EFEFEF",
+        labelsColor: "#000",
+        highlighterColor: "#000",
+        position: "1w1w1w1w/w1w1w1w1/1w1w1w1w/8/8/b1b1b1b1/1b1b1b1b/b1b1b1b1",
+        piecesFiles: {
+            b: "checkers_black", w: "checkers_white"
+        }
     });
             </code></pre>
             <pre><code class="javascript">
@@ -260,7 +275,7 @@
             <h4>Try it</h4>
             <p>
                 Position (FEN format coherent to board dimensions).<br />Empty string to clear the board:<br />
-                <input id="input9" value="2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8" type="text" style="width: 100%"/><br />
+                <input id="input9" value="2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/3[bQ]4" type="text" style="width: 100%"/><br />
                 <button onclick="tryFunction('setPosition')">Set position</button>
             </p>
         </div>
@@ -293,6 +308,52 @@
             <p>
                 Move pieces on board to change position:
                 <button onclick="tryFunction('getPosition')">Get position</button>
+            </p>
+        </div>
+        <div style="clear: both"></div>
+        <hr />
+
+        <h1 id="move">.move</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex11"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
+    var board11 = new CanvasBoard({
+        canvasId: "ex11",
+        canvasSize: 510,
+        goGame: true,
+        blocksInARow: 13,
+        lightSquaresColor: "#f2b06d",
+        position: "www10/bbwww1w6/b1bwbwwb5/1bbbbbww5/4bwbb5/4bwwbw4/2b2bww5/5bw6/5bbw5/4bwbb5/4bwwbw4/1bbbbbww5/bbwww1w6",
+        borderColor: "#f2b06d",
+        labelsColor: "333",
+        borderSize: 27
+    });
+            </code></pre>
+            <pre><code class="javascript">
+    board11.move(from, to)
+            </code></pre>
+
+            <h4>Try it</h4>
+            <p>
+                From:
+                <select id="fromCol">
+                    <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option><option>I</option><option>J</option><option>K</option><option>L</option><option>M</option>
+                </select>
+                <select id="fromRow">
+                    <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option>
+                </select>
+                To:
+                <select id="toCol">
+                    <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option><option>I</option><option>J</option><option>K</option><option>L</option><option>M</option>
+                </select>
+                <select id="toRow">
+                    <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option>
+                </select>
+                <button onclick="tryFunction('move')">Move</button>
             </p>
         </div>
         <div style="clear: both"></div>

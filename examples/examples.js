@@ -35,7 +35,8 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         lightSquaresColor: "#f2b06d",
         position: "www10/bbwww1w6/b1bwbwwb5/1bbbbbww5/4bwbb5/4bwwbw4/2b2bww5/5bw6/5bbw5/4bwbb5/4bwwbw4/1bbbbbww5/bbwww1w6",
         borderColor: "#f2b06d",
-        coords: false
+        coords: false,
+        borderSize: 8
     });
     new CanvasBoard({
         canvasId: "ex5",
@@ -49,23 +50,21 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
             w: "checkers_white"
         }
     });
-    board6 = new CanvasBoard({
+    board6 =new CanvasBoard({
         canvasId: "ex6",
         canvasSize: 510,
-        borderColor: "#EFEFEF",
-        labelsColor: "#000"
+        goGame: true,
+        blocksInARow: 19,
+        lightSquaresColor: "#f2b06d",
+        position: "3w2w1w10/1b3bw2ww1w6/1b1bwb1ww1wwbb5/1bb2bbwb2bww5/4bwb2w1bbb5/4b2wwwwb1bw4/2bbb2bbw2w5w/bbwb5bwwwbb4/wwwb5bbbw5b/wwb1wb4bwbb5/1wwwbb4bwwbw4/wwwbbb1bbbbbww5/4bbbbwww1w6/1b1bwb1ww1wwbb5/2bbb2bbw2w5w/4bwb2w1bbb5/1wwwbb4bwwbw4/1b3bw2ww1w6/2wbbbww3wwb4b",
+        borderColor: "#f2b06d",
+        borderSize: 9
     });
     board7 = new CanvasBoard({
         canvasId: "ex7",
         canvasSize: 510,
-        goGame: true,
-        blocksInARow: 13,
-        animationOfPieces: false,
-        actionsOnPieces: false,
-        lightSquaresColor: "#f2b06d",
-        position: "www10/bbwww1w6/b1bwbwwb5/1bbbbbww5/4bwbb5/4bwwbw4/2b2bww5/5bw6/5bbw5/4bwbb5/4bwwbw4/1bbbbbww5/bbwww1w6",
-        borderColor: "#f2b06d",
-        coords: false
+        borderColor: "#EFEFEF",
+        labelsColor: "#000"
     });
     board8 = new CanvasBoard({
         canvasId: "ex8",
@@ -75,8 +74,7 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         highlighterColor: "#000",
         position: "1w1w1w1w/w1w1w1w1/1w1w1w1w/8/8/b1b1b1b1/1b1b1b1b/b1b1b1b1",
         piecesFiles: {
-            b: "checkers_black",
-            w: "checkers_white"
+            b: "checkers_black", w: "checkers_white"
         }
     });
     board9 = new CanvasBoard({
@@ -96,6 +94,17 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
             p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
         },
         position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8"
+    });
+    board11 = new CanvasBoard({
+        canvasId: "ex11",
+        canvasSize: 510,
+        goGame: true,
+        blocksInARow: 13,
+        lightSquaresColor: "#f2b06d",
+        position: "www10/bbwww1w6/b1bwbwwb5/1bbbbbww5/4bwbb5/4bwwbw4/2b2bww5/5bw6/5bbw5/4bwbb5/4bwwbw4/1bbbbbww5/bbwww1w6",
+        borderColor: "#f2b06d",
+        labelsColor: "333",
+        borderSize: 27
     });
 });
 function tryFunction(f) {
@@ -120,6 +129,9 @@ function tryFunction(f) {
             break;
         case "getPosition":
             alert("Retrieved position:\n\n"+board10.getPosition());
+            break;
+        case "move":
+            board11.move(document.getElementById("fromCol").value+document.getElementById("fromRow").value, document.getElementById("toCol").value+document.getElementById("toRow").value);
             break;
     }
 }
