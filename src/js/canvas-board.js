@@ -308,6 +308,201 @@
             }
         }
 
+        function _getCurrentBoard() {
+            /*
+             * returns: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+             *          If a position has no pieces the corresponding element is undefined.
+             */
+
+            var currentBoard = [];
+            for (var i = 0; i < _configuration.blocksInARow; i++) { // add an array for each column
+                var col = [];
+                for (var j = 0; j < _configuration.blocksInAColumn; j++) { // add an undefined element for each row of column
+                    col.push(undefined);
+                }
+                currentBoard.push(col);
+            }
+            for (var i = 0; i < _piecesContainer.getNumChildren(); i++) {
+                var piece = _piecesContainer.getChildAt(i);
+                if (piece.rank != undefined && piece.file != undefined) {
+                    if (!currentBoard[piece.file][piece.rank]) {
+                        currentBoard[piece.file][piece.rank] = [];
+                    }
+                    currentBoard[piece.file][piece.rank].push(piece.label);
+                }
+            }
+
+            return currentBoard;
+        }
+
+        function _getFenFromBoard(board) {
+            /*
+             * input: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+             *        If a position has no pieces the corresponding element can be undefined or can be an empty array.
+             * output: fen-like string that describes position.
+             */
+
+            if (!_isArray(board)) {
+                throw new Error("_getFenFromBoard: invalid input parameter");
+            }
+
+            var numberOfColumns = board.length;
+            var numberOfRows;
+            for(var i = 0; i < numberOfColumns; i++) {
+                if (!_isArray(board[i])) {
+                    throw new Error("_getFenFromBoard: invalid input parameter");
+                }
+                if (i == 0) {
+                    numberOfRows = board[i].length;
+                } else {
+                    if (numberOfRows != board[i].length) {
+                        throw new Error("_getFenFromBoard: invalid input parameter");
+                    }
+                }
+                for(var j = 0; j < numberOfRows; j++) {
+                    if (board[i][j] != undefined && !_isArray(board[i][j])) {
+                        throw new Error("_getFenFromBoard: invalid input parameter");
+                    }
+                }
+            }
+            if (!numberOfRows) {
+                throw new Error("_getFenFromBoard: invalid input parameter");
+            }
+
+            var fen = '';
+            for (var i = numberOfRows - 1; i >= 0; i--) {
+                if (i != numberOfRows - 1) {
+                    fen += '/';
+                }
+                var temp = 0;
+                for (var j = 0; j < numberOfColumns; j++) {
+                    if (board[j][i] && board[j][i].length > 0) {
+                        if (temp > 0) {
+                            fen += temp;
+                            temp = 0;
+                        }
+                        if (board[j][i].length == 1) {
+                            fen += board[j][i][0];
+                        } else {
+                            fen += "[";
+                            for (var k = 0; k < board[j][i].length; k++) {
+                                fen += board[j][i][k];
+                            }
+                            fen += "]";
+                        }
+                    } else {
+                        temp++;
+                    }
+                }
+                if (temp > 0) {
+                    fen += temp;
+                }
+            }
+
+            return fen;
+        }
+
+        function _getBoardFromFen(fenPosition) {
+            /*
+             * input: fen-like string that describes position.
+             * output: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+             *          If a position has no pieces the corresponding element is undefined.
+             */
+
+            var rows = fenPosition.split("/");
+
+            var numberOfRows = rows.length;
+            var numberOfColumns;
+            for(var i = 0; i < numberOfRows; i++) {
+                if (i == 0) {
+                    numberOfColumns = getRowLength(rows[i]);
+                } else {
+                    if (numberOfColumns != getRowLength(rows[i])) {
+                        throw new Error("_getBoardFromFen: invalid input parameter");
+                    }
+                }
+            }
+
+            var newBoard = [];
+            for (var i = 0; i < numberOfColumns; i++) { // add an array for each column
+                var col = [];
+                for (var j = 0; j < numberOfRows; j++) { // add an undefined element for each row of column
+                    col.push(undefined);
+                }
+                newBoard.push(col);
+            }
+            for (var i = 0; i < numberOfRows; i++) { // for each row
+                var temp = 0;
+                for (var j = 0; j < rows[i].length;) {
+                    if (isNaN(rows[i][j])) {
+                        var piecesOnBlock = [];
+
+                        if (rows[i][j] == "[") {
+                            j++;
+                            while (rows[i][j] != "]") {
+                                piecesOnBlock.push(rows[i][j]);
+                                j++;
+                            }
+                            j++;
+                        } else {
+                            piecesOnBlock.push(rows[i][j]);
+                            j++;
+                        }
+
+                        newBoard[temp][numberOfRows-i-1] = piecesOnBlock;
+                        temp++;
+                    } else {
+                        for (var z = 1; z + j < rows[i].length; z++) { // calc chars length of number
+                            if (isNaN(rows[i][j + z])) {
+                                break;
+                            }
+                        }
+                        var lengthOfNumber = z;
+                        var number = rows[i].substr(j, lengthOfNumber);
+                        temp += parseInt(number, 10);
+                        j += lengthOfNumber;
+                    }
+                }
+            }
+
+            return newBoard;
+
+            function getRowLength(row) {
+                var length = 0;
+                for (var j = 0; j < row.length;) {
+                    if (isNaN(row[j])) {
+                        if (row[j] != "[") {
+                            j++;
+                        } else {
+                            var founded = false;
+                            for (var z = 1; z + j < row.length; z++) { // get length of string "[....]"
+                                if (row[j + z] == "]") {
+                                    founded = true;
+                                    break;
+                                }
+                            }
+                            if (!founded) {
+                                throw new Error("_getBoardFromFen: invalid input parameter");
+                            }
+                            j += z + 1;
+                        }
+                        length++;
+                    } else {
+                        for (var z = 1; z + j < row.length; z++) { // calc chars length of number
+                            if (isNaN(row[j + z])) {
+                                break;
+                            }
+                        }
+                        var lengthOfNumber = z;
+                        var number = row.substr(j, lengthOfNumber);
+                        length += parseInt(number, 10);
+                        j += lengthOfNumber;
+                    }
+                }
+                return length;
+            }
+        }
+
         function _createPiece(pieceLabel) {
 
             var deferred = customQ.defer();
@@ -417,48 +612,11 @@
                 }
             }
 
-            var currentListOfMovements;
-            if (_listOfMovements.length > 0) {
-                currentListOfMovements = _listOfMovements;
-                _listOfMovements = [];
-            }
+            var currentBoard = _getCurrentBoard();
+            var newBoard = _getBoardFromFen(position);
 
-            // create object with state of current board
-            var currentBoard = [];
-            for (var i = 0; i < _configuration.blocksInARow; i++) { // add an array for each column
-                currentBoard.push([]);
-            }
-            for (var i = 0; i < _piecesContainer.getNumChildren(); i++) {
-                var piece = _piecesContainer.getChildAt(i);
-                if (piece.rank != undefined && piece.file != undefined)
-                    currentBoard[piece.file][piece.rank] = piece.label;
-            }
-
-            // create object with state of board with new position
-            var rows = position.split("/");
-            var newBoard = [];
-            for (var i = 0; i < _configuration.blocksInARow; i++) { // add an array for each column
-                newBoard.push([]);
-            }
-            for (var i = 0; i < _configuration.blocksInAColumn; i++) { // for each row
-                var temp = 0;
-                for (var j = 0; j < rows[i].length;) {
-                    if (isNaN(rows[i][j])) {
-                        newBoard[temp][_configuration.blocksInAColumn - 1 - i] = rows[i][j];
-                        temp++;
-                        j++;
-                    } else {
-                        for (var z = 1; z + j < rows[i].length; z++) { // calc chars length of number
-                            if (isNaN(rows[i][j + z])) {
-                                break;
-                            }
-                        }
-                        var lengthOfNumber = z;
-                        var number = rows[i].substr(j, lengthOfNumber);
-                        temp += parseInt(number, 10);
-                        j += lengthOfNumber;
-                    }
-                }
+            if (newBoard.length != _configuration.blocksInARow || newBoard[0].length != _configuration.blocksInAColumn) {
+                throw new Error("setPosition: invalid input parameter.");
             }
 
             // temp vars for computation
@@ -468,30 +626,46 @@
             // find pieces that yet are in the correct position
             for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
                 for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
-                    if (currentBoard[i][j] && newBoard[i][j] && currentBoard[i][j] == newBoard[i][j]) {
+                    if (currentBoard[i][j] && newBoard[i][j]) {
                         for (var z = 0; z < _piecesContainer.getNumChildren(); z++) {
                             var piece = _piecesContainer.getChildAt(z);
                             if (piece.file == i && piece.rank == j) {
-                                newBoard[i][j] = undefined;
-                                assignedPieces.push(piece);
-                                break;
+                                var indexInNewBoard = newBoard[i][j].indexOf(piece.label);
+                                if (indexInNewBoard != -1 && currentBoard[i][j].indexOf(piece.label) != -1) {
+                                    assignedPieces.push(piece);
+                                    if (newBoard[i][j].length == 1) {
+                                        newBoard[i][j] = undefined;
+                                        break;
+                                    } else {
+                                        newBoard[i][j].splice(indexInNewBoard, 1);
+                                    }
+                                }
                             }
                         }
+
                     }
                 }
             }
 
             // find pieces that are moving to the correct position
-            if (currentListOfMovements) { // if a piece is yet moving to the destination it preserves its movement
+            if (_listOfMovements.length > 0) { // if a piece is yet moving to the destination it preserves its movement
                 for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
                     for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
                         if (newBoard[i][j]) {
-                            for (var z = 0; z < currentListOfMovements.length; z++) {
-                                var move = currentListOfMovements[z];
-                                if (move.piece.label == newBoard[i][j] && move.destFile == i && move.destRank == j) {
-                                    newBoard[i][j] = undefined;
-                                    assignedPieces.push(move.piece);
-                                    listOfMovements.push(move);
+                            for (var z = 0; z < _listOfMovements.length; z++) {
+                                var move = _listOfMovements[z];
+                                if (move.destFile == i && move.destRank == j) {
+                                    var indexInNewBoard = newBoard[i][j].indexOf(move.piece.label);
+                                    if (indexInNewBoard != -1) {
+                                        assignedPieces.push(move.piece);
+                                        listOfMovements.push(move);
+                                        if (newBoard[i][j].length == 1) {
+                                            newBoard[i][j] = undefined;
+                                            break;
+                                        } else {
+                                            newBoard[i][j].splice(indexInNewBoard, 1);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -505,49 +679,57 @@
                     if (newBoard[i][j]) {
                         for (var z = 0; z < _piecesContainer.getNumChildren(); z++) {
                             var piece = _piecesContainer.getChildAt(z);
-                            if (newBoard[i][j] == piece.label && assignedPieces.indexOf(piece) == -1) { // if true actualPiece is a candidate to reach (i,j) position
-                                var distance = Math.pow((piece.file - i), 2) + Math.pow((piece.rank - j), 2);
-                                for (var k = z + 1; k < _piecesContainer.getNumChildren(); k++) {
-                                    var alternativePiece = _piecesContainer.getChildAt(k);
-                                    if (newBoard[i][j] == alternativePiece.label && assignedPieces.indexOf(alternativePiece) == -1) { // search for a piece for a more consistent movement
-                                        var alternativeDistance = 0;
+                            if (assignedPieces.indexOf(piece) == -1) {
+                                var indexInNewBoard = newBoard[i][j].indexOf(piece.label);
+                                if (indexInNewBoard != -1) { // if true piece is a candidate to reach (i,j) position
+                                    var distance = Math.pow((piece.file - i), 2) + Math.pow((piece.rank - j), 2);
+                                    for (var k = z + 1; k < _piecesContainer.getNumChildren(); k++) {
+                                        var alternativePiece = _piecesContainer.getChildAt(k);
+                                        if (newBoard[i][j].indexOf(alternativePiece.label) != -1 && assignedPieces.indexOf(alternativePiece) == -1) { // search for a piece for a more consistent movement
+                                            var alternativeDistance = 0;
 
-                                        if (_configuration.chessGame.bishopLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.bishopLabel.toUpperCase()) {
-                                            if (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) { // found a bishop of correct square color, while current selected bishop is on a square with of not correct color
-                                                piece = alternativePiece;
-                                            } else if ((((alternativePiece.rank + alternativePiece.file) % 2 != (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) || (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 == (i + j) % 2))) { // both bishops are on squares of same color
+                                            if (_configuration.chessGame.bishopLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.bishopLabel.toUpperCase()) {
+                                                if (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) { // found a bishop of correct square color, while current selected bishop is on a square with of not correct color
+                                                    piece = alternativePiece;
+                                                } else if ((((alternativePiece.rank + alternativePiece.file) % 2 != (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) || (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 == (i + j) % 2))) { // both bishops are on squares of same color
+                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                                }
+                                            } else if (_configuration.chessGame.rookLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.rookLabel.toUpperCase()) {
+                                                if ((alternativePiece.file == i || alternativePiece.rank == j) && !(piece.file == i || piece.rank == j)) { // alternative rook has correct file or rank, while current selected rook not
+                                                    piece = alternativePiece;
+                                                } else { // check alternative rook by distance
+                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                                }
+                                            } else if (_configuration.chessGame.pawnLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.pawnLabel.toUpperCase()) {
+                                                if (alternativePiece.file == i && piece.file != i) { // alternative pawn has correct file, while current pawn not
+                                                    piece = alternativePiece;
+                                                } else if ((alternativePiece.file == i && piece.file == i) || (alternativePiece.file != i && piece.file != i)) {
+                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                                }
+                                            } else {
                                                 alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
                                             }
-                                        } else if (_configuration.chessGame.rookLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.rookLabel.toUpperCase()) {
-                                            if ((alternativePiece.file == i || alternativePiece.rank == j) && !(piece.file == i || piece.rank == j)) { // alternative rook has correct file or rank, while current selected rook not
-                                                piece = alternativePiece;
-                                            } else { // check alternative rook by distance
-                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                            }
-                                        } else if (_configuration.chessGame.pawnLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.pawnLabel.toUpperCase()) {
-                                            if (alternativePiece.file == i && piece.file != i) { // alternative pawn has correct file, while current pawn not
-                                                piece = alternativePiece;
-                                            } else if ((alternativePiece.file == i && piece.file == i) || (alternativePiece.file != i && piece.file != i)) {
-                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                            }
-                                        } else {
-                                            alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                        }
 
-                                        if (alternativeDistance && alternativeDistance < distance) {
-                                            distance = alternativeDistance;
-                                            piece = alternativePiece;
+                                            if (alternativeDistance && alternativeDistance < distance) {
+                                                distance = alternativeDistance;
+                                                piece = alternativePiece;
+                                            }
                                         }
                                     }
+
+                                    assignedPieces.push(piece);
+                                    listOfMovements.push({
+                                        piece: piece,
+                                        destFile: i,
+                                        destRank: j
+                                    });
+                                    if (newBoard[i][j].length == 1) {
+                                        newBoard[i][j] = undefined;
+                                        break;
+                                    } else {
+                                        newBoard[i][j].splice(indexInNewBoard, 1);
+                                    }
                                 }
-                                newBoard[i][j] = undefined;
-                                assignedPieces.push(piece);
-                                listOfMovements.push({
-                                    piece: piece,
-                                    destFile: i,
-                                    destRank: j
-                                });
-                                break;
                             }
                         }
                     }
@@ -558,39 +740,39 @@
             for (var i = _piecesContainer.getNumChildren() - 1; i >= 0; i--) {
                 var piece = _piecesContainer.getChildAt(i);
                 if (assignedPieces.indexOf(piece) == -1) {
-                    this.removePieceFromPosition(_getPositionLabelFromFileRank(piece.file, piece.rank));
+                    this.removePiece(piece);
                 }
             }
 
             // add missing pieces
             var xStarting, yStarting;
-            if (_piecesContainer.getNumChildren() == 0 && _configuration.animationOfPieces) { // if board is empty movements of new position start from center of board
+            if (_piecesContainer.getNumChildren() == 0 && _configuration.animationOfPieces) { // if board is empty and animation is active then movements of new position start from center of board
                 xStarting = _configuration.allBlocksWidth / 2;
                 yStarting = _configuration.allBlocksHeight / 2;
             }
             for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
                 for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
                     if (newBoard[i][j]) {
-                        var promise = this.getNewPiece(newBoard[i][j]);
-                        promise.then(
-                            (function (file, rank) {
-                                return (function (piece) {
-                                    piece.x = xStarting;
-                                    piece.y = yStarting;
-                                    this.setPieceAtPosition(piece, _getPositionLabelFromFileRank(file, rank));
-                                }).bind(this)
-                            }).call(this, i, j)
-                        ).catch(function (error) {
-                            console.log(error);
-                        });
+                        for (var z = 0; z<newBoard[i][j].length; z++) {
+                            var promise = this.getNewPiece(newBoard[i][j][z]);
+                            promise.then(
+                                (function (file, rank) {
+                                    return (function (piece) {
+                                        piece.x = xStarting;
+                                        piece.y = yStarting;
+                                        this.setPieceAtPosition(piece, _getPositionLabelFromFileRank(file, rank));
+                                    }).bind(this)
+                                }).call(this, i, j)
+                            ).catch(function (error) {
+                                console.log(error);
+                            });
+                        }
                     }
                 }
             }
 
             // start movements
-            if (listOfMovements.length > 0) {
-                _listOfMovements = listOfMovements;
-            }
+            _listOfMovements = _listOfMovements.concat(listOfMovements);
         };
 
         this.getPosition = function () {
@@ -598,37 +780,7 @@
              * returns board position in FEN-like notation
              */
 
-            var currentBoard = [];
-            for (var i = 0; i < _configuration.blocksInARow; i++) { // add an array for each column
-                currentBoard.push([]);
-            }
-            for (var i = 0; i < _piecesContainer.getNumChildren(); i++) {
-                var piece = _piecesContainer.getChildAt(i);
-                if (piece.rank != undefined && piece.file != undefined)
-                    currentBoard[piece.file][piece.rank] = piece.label;
-            }
-
-            var fen = '';
-            for (var i = _configuration.blocksInAColumn - 1; i >= 0; i--) {
-                if (i != _configuration.blocksInAColumn - 1)
-                    fen += '/';
-                var temp = 0;
-                for (var j = 0; j < _configuration.blocksInARow; j++) {
-                    if (currentBoard[j][i]) {
-                        if (temp > 0) {
-                            fen += temp;
-                            temp = 0;
-                        }
-                        fen += currentBoard[j][i];
-                    } else {
-                        temp++;
-                    }
-                }
-                if (temp > 0)
-                    fen += temp;
-            }
-
-            return fen;
+            return _getFenFromBoard(_getCurrentBoard());
         };
 
         this.move = function (/* arguments: see comment */) {
@@ -838,6 +990,17 @@
             _update = true;
 
             return true;
+        };
+
+        this.removePiece = function (piece) {
+
+            if (_piecesContainer.contains(piece)) {
+                _piecesContainer.removeChild(piece);
+                _update = true;
+                return true;
+            }
+
+            return false;
         };
 
         this.getNewPiece = function (pieceLabel) { // input: label of piece
@@ -1415,7 +1578,7 @@
                     goGame:                  configuration.goGame === true,
                     position:                configuration.position,
                     hooks:                   configuration.hooks || {},
-                    chessGame:               configuration.chessGame
+                    chessGame:               configuration.chessGame || {}
                 }
             }
 
