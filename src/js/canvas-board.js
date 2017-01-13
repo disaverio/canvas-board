@@ -1180,12 +1180,12 @@
 
                         boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
 
-                        var currentSquare;
+                        var currentSquare = undefined;
                         if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn) {
                             currentSquare = file + _configuration.blocksInARow * rank;
                         }
 
-                        if (!currentSquare) {
+                        if (currentSquare == undefined) {
                             piece.x = piece.startPosition.x;
                             piece.y = piece.startPosition.y;
                             _update = true;
