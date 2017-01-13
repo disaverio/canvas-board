@@ -195,7 +195,7 @@
     return function(configuration) {
 
         // private
-        var _stage, _canvas, _configuration, _piecesContainer,
+        var _stage, _canvas, _configuration, _piecesContainer, _selectedPiece,
             _update = false,
             _rotationDegrees = 0,
             _listOfMovements = [],
@@ -1043,42 +1043,83 @@
                         .drawRect(0, 0, _piecesBox[pieceLabel].width, _piecesBox[pieceLabel].height);
 
                     piece.addEventListener("rollover", (function (evt) {
-                        var piece = evt.target;
-                        piece.scaleX = piece.scaleY = piece.scale * 1.25;
-                        piece.shadow = new createjs.Shadow(_configuration.shadowColor, 3, 3, 5);
-                        _update = true;
+                        if (!_selectedPiece) {
+                            var piece = evt.target;
+                            piece.scaleX = piece.scaleY = piece.scale * 1.25;
+                            piece.shadow = new createjs.Shadow(_configuration.shadowColor, 3, 3, 5);
+                            _update = true;
+                        } else {
+                            _stage.getChildByName("boardContainer").removeChild(_stage.getChildByName("boardContainer").getChildByName("blockHighlighter"));
+                            var pt = _stage.getChildByName("boardContainer").globalToLocal(evt.stageX, evt.stageY);
+                            var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
+                            var blockHighlighter = new createjs.Shape();
+                            blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
+                                .setStrokeStyle(_configuration.highlighterSize)
+                                .drawRect(
+                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * numericPosition.file + _configuration.highlighterSize / 2,
+                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - numericPosition.rank - 1) + _configuration.highlighterSize / 2,
+                                    _configuration.blockSize - _configuration.highlighterSize,
+                                    _configuration.blockSize - _configuration.highlighterSize);
+                            blockHighlighter.name = "blockHighlighter";
+                            _stage.getChildByName("boardContainer").addChildAt(blockHighlighter, _stage.getChildByName("boardContainer").getNumChildren() - 1);
+                            _update = true;
+                        }
                     }).bind(this));
 
                     piece.addEventListener("rollout", (function (evt) {
-                        var piece = evt.target;
-                        piece.scaleX = piece.scaleY = piece.scale;
-                        piece.shadow = null;
-                        _update = true;
+                        if (!_selectedPiece) {
+                            var piece = evt.target;
+                            piece.scaleX = piece.scaleY = piece.scale;
+                            piece.shadow = null;
+                            _update = true;
+                        } else {
+                            _stage.getChildByName("boardContainer").removeChild(_stage.getChildByName("boardContainer").getChildByName("blockHighlighter"));
+                            _update = true;
+                        }
                     }).bind(this));
 
                     piece.addEventListener("mousedown", (function (evt) {
                         var piece = evt.target;
-                        var boardContainer = _stage.getChildByName("boardContainer");
-                        var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
-
-                        _piecesContainer.removeChild(piece);
-                        _piecesContainer.addChild(piece);
-
                         piece.startPosition = {
                             x: piece.x,
                             y: piece.y
                         };
+                        if (!_selectedPiece) {
+                            var boardContainer = _stage.getChildByName("boardContainer");
+                            var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                        piece.x = pt.x;
-                        piece.y = pt.y;
+                            _piecesContainer.removeChild(piece);
+                            _piecesContainer.addChild(piece);
 
-                        _update = true;
+                            piece.x = pt.x;
+                            piece.y = pt.y;
+
+                            _update = true;
+                        }
                     }).bind(this));
 
                     piece.addEventListener("pressmove", (function (evt) {
                         var piece = evt.target;
                         var boardContainer = _stage.getChildByName("boardContainer");
                         var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+
+                        if (_selectedPiece) {
+                            boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+                            _selectedPiece.scaleX = _selectedPiece.scaleY = _selectedPiece.scale;
+                            _selectedPiece.shadow = null;
+                            _selectedPiece = undefined;
+
+                            piece.scaleX = piece.scaleY = piece.scale * 1.25;
+                            piece.shadow = new createjs.Shadow(_configuration.shadowColor, 3, 3, 5);
+
+                            _piecesContainer.removeChild(piece);
+                            _piecesContainer.addChild(piece);
+
+                            piece.x = pt.x;
+                            piece.y = pt.y;
+
+                            _update = true;
+                        }
 
                         var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
 
@@ -1147,12 +1188,43 @@
                         if (!currentSquare) {
                             piece.x = piece.startPosition.x;
                             piece.y = piece.startPosition.y;
+                            _update = true;
                         } else {
+                            if (currentSquare != piece.file + _configuration.blocksInARow * piece.rank) {
+                                var destPosition = _getPositionLabelFromFileRank(file, rank);
+                                var moved = this.move(piece, destPosition);
 
-                            var destPosition = _getPositionLabelFromFileRank(file, rank);
-                            var moved = this.move(piece, destPosition);
+                                if (!moved) {
+                                    piece.x = piece.startPosition.x;
+                                    piece.y = piece.startPosition.y;
+                                    _update = true;
+                                }
+                            } else {
+                                if (!_selectedPiece) {
+                                    _selectedPiece = piece;
+                                    var blockHighlighter = new createjs.Shape();
+                                    blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
+                                        .setStrokeStyle(_configuration.highlighterSize)
+                                        .drawRect(
+                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * file + _configuration.highlighterSize / 2,
+                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - rank - 1) + _configuration.highlighterSize / 2,
+                                            _configuration.blockSize - _configuration.highlighterSize,
+                                            _configuration.blockSize - _configuration.highlighterSize);
+                                    blockHighlighter.name = "blockHighlighter";
+                                    boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren() - 1);
+                                } else {
+                                    var destPosition = _getPositionLabelFromFileRank(file, rank);
+                                    var moved = this.move(_selectedPiece, destPosition);
+                                    if (!moved) {
+                                        _selectedPiece.x = _selectedPiece.startPosition.x;
+                                        _selectedPiece.y = _selectedPiece.startPosition.y;
+                                        _update = true;
+                                    }
+                                    _selectedPiece.scaleX = _selectedPiece.scaleY = _selectedPiece.scale;
+                                    _selectedPiece.shadow = null;
+                                    _selectedPiece = undefined;
+                                }
 
-                            if (!moved) {
                                 piece.x = piece.startPosition.x;
                                 piece.y = piece.startPosition.y;
                                 _update = true;
@@ -1277,6 +1349,51 @@
                 block.x = xyCoord.x;
                 block.y = xyCoord.y;
                 block.regY = block.regX = _configuration.blockSize / 2;
+
+                if (_configuration.actionsOnPieces ) {
+                    block.addEventListener("rollover", (function (evt) {
+                        if (_selectedPiece) {
+                            boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+                            var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+                            var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
+                            var blockHighlighter = new createjs.Shape();
+                            blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
+                                .setStrokeStyle(_configuration.highlighterSize)
+                                .drawRect(
+                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * numericPosition.file + _configuration.highlighterSize / 2,
+                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - numericPosition.rank - 1) + _configuration.highlighterSize / 2,
+                                    _configuration.blockSize - _configuration.highlighterSize,
+                                    _configuration.blockSize - _configuration.highlighterSize);
+                            blockHighlighter.name = "blockHighlighter";
+                            boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren() - 1);
+                            _update = true;
+                        }
+                    }).bind(this));
+
+                    block.addEventListener("rollout", (function (evt) {
+                        if (_selectedPiece) {
+                            boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+                            _update = true;
+                        }
+                    }).bind(this));
+                    block.addEventListener("pressup", (function (evt) {
+                        if (_selectedPiece) {
+                            boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+                            var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+                            var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
+                            var destPosition = _getPositionLabelFromFileRank(numericPosition.file, numericPosition.rank);
+                            var moved = this.move(_selectedPiece, destPosition);
+                            if (!moved) {
+                                _selectedPiece.x = _selectedPiece.startPosition.x;
+                                _selectedPiece.y = _selectedPiece.startPosition.y;
+                            }
+                            _selectedPiece.scaleX = _selectedPiece.scaleY = _selectedPiece.scale;
+                            _selectedPiece.shadow = null;
+                            _selectedPiece = undefined;
+                            _update = true;
+                        }
+                    }).bind(this));
+                }
 
                 if (_configuration.type == 'linesGrid') {
                     drawBlockLines(block, columnOfBlock, rowOfBlock);
