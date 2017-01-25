@@ -7,7 +7,7 @@ module.exports = function(grunt) {
         concat: {
             dist: {
                 src: [
-                    'src/js/*.js'
+                    'src/*.js'
                 ],
                 dest: 'dist/canvas-board.concat.js'
             }
@@ -15,7 +15,7 @@ module.exports = function(grunt) {
 
         uglify: {
             build: {
-                src: 'src/js/canvas-board.js',
+                src: 'src/canvas-board.js',
                 dest: 'dist/canvas-board.min.js'
             }
         }

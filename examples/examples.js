@@ -50,7 +50,7 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
             w: "checkers_white"
         }
     });
-    board6 =new CanvasBoard({
+    board6 = new CanvasBoard({
         canvasId: "ex6",
         canvasSize: 510,
         goGame: true,
@@ -58,6 +58,7 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         lightSquaresColor: "#f2b06d",
         position: "3w2w1w10/1b3bw2ww1w6/1b1bwb1ww1wwbb5/1bb2bbwb2bww5/4bwb2w1bbb5/4b2wwwwb1bw4/2bbb2bbw2w5w/bbwb5bwwwbb4/wwwb5bbbw5b/wwb1wb4bwbb5/1wwwbb4bwwbw4/wwwbbb1bbbbbww5/4bbbbwww1w6/1b1bwb1ww1wwbb5/2bbb2bbw2w5w/4bwb2w1bbb5/1wwwbb4bwwbw4/1b3bw2ww1w6/2wbbbww3wwb4b",
         borderColor: "#f2b06d",
+        coords: false,
         borderSize: 9
     });
     board7 = new CanvasBoard({

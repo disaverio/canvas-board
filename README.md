@@ -206,6 +206,12 @@ Remove piece(s) from _position_. Input parameter is a position in the form of co
 **Parameters:** (position: string) - Mandatory  
 **Returns:** boolean. true if pieces(s) are removed, false otherwise
 
+### .removePiece(piece)
+Remove _piece_ from board.
+ 
+**Parameters:** (piece: object) - Mandatory  
+**Returns:** boolean. true if pieces is removed, false otherwise    
+
 ### .getNewPiece(pieceLabel)
 Async function to instantiate a new piece. _pieceLabel_ parameter is label of requested piece.
 

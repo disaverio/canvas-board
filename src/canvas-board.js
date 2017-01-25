@@ -195,13 +195,14 @@
     return function(configuration) {
 
         // private
-        var _stage, _canvas, _configuration, _piecesContainer, _selectedPiece,
+        var _stage, _canvas, _configuration, _selectedPiece,
+            _piecesContainer, // createjs.Container containing pieces currently on board
+            _loadingPieces = {}, // object containing pieces which image is loading
+            _piecesBox = {}, // object containing pieces which image is yet loaded
             _update = false,
             _rotationDegrees = 0,
             _listOfMovements = [],
             _containersToRotate = [],
-            _piecesBox = {},
-            _loadingPieces = {},
             _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
         function __getNumberOfChars(numberOfElements, numberOfSymbols) {
@@ -993,6 +994,10 @@
         };
 
         this.removePiece = function (piece) {
+
+            if (!_isPiece(piece)) {
+                throw new Error("removePiece: invalid input parameter.")
+            }
 
             if (_piecesContainer.contains(piece)) {
                 _piecesContainer.removeChild(piece);
