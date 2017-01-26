@@ -12,14 +12,13 @@ See [examples page](https://disaverio.github.io/canvas-board/examples/index.html
 
 ## Installation
 
-Direct include:
+#####With [Bower package manager](https://bower.io/):
 
-```html
-<script src="https://code.createjs.com/easeljs-0.8.2.min.js"></script>
-<script src="canvas-board.min.js"></script>
+```sh
+bower install canvas-board
 ```
 
-With AMD loader (e.g. [RequireJS](http://requirejs.org/)):
+#####With AMD loader (e.g. [RequireJS](http://requirejs.org/)):
 
 ```html
 <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.2/require.min.js"></script>
@@ -34,6 +33,13 @@ With AMD loader (e.g. [RequireJS](http://requirejs.org/)):
         }
     });
 </script>
+```
+
+#####Direct include:
+
+```html
+<script src="https://code.createjs.com/easeljs-0.8.2.min.js"></script>
+<script src="canvas-board.min.js"></script>
 ```
 
 ## How to use
