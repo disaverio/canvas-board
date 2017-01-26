@@ -1,9 +1,11 @@
 {
   "name": "canvas-board",
   "description": "General purpose NxN board",
-  "main": "",
+  "main": [
+    "src/canvas-board.js"
+  ],
   "authors": [
-    "Andrea Di Saverio <disaverio.andrea@gmail.com>"
+    { "name": "Andrea Di Saverio", "email": "disaverio.andrea@gmail.com", "homepage": "http://andreads.it" }
   ],
   "license": "MIT",
   "homepage": "https://github.com/disaverio/canvas-board",
@@ -14,7 +16,20 @@
     "test",
     "tests"
   ],
+  "keywords": [
+    "board",
+    "canvas"
+  ],
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
   "dependencies": {
     "create-js": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/disaverio/canvas-board.git"
   }
 }

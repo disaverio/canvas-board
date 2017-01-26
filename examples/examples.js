@@ -107,6 +107,15 @@ requirejs(["canvasBoard"], function(CanvasBoard) {
         labelsColor: "333",
         borderSize: 27
     });
+    board12 = new CanvasBoard({
+        canvasId: "ex12",
+        canvasSize: 510,
+        highlighterColor: "#000",
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        },
+        position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8"
+    });
 });
 function tryFunction(f) {
     switch (f) {
@@ -133,6 +142,9 @@ function tryFunction(f) {
             break;
         case "move":
             board11.move(document.getElementById("fromCol").value+document.getElementById("fromRow").value, document.getElementById("toCol").value+document.getElementById("toRow").value);
+            break;
+        case "removePieceFromPosition":
+            board12.removePieceFromPosition(document.getElementById("fromCol2").value+document.getElementById("fromRow2").value);
             break;
     }
 }

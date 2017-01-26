@@ -359,6 +359,43 @@
         <div style="clear: both"></div>
         <hr />
 
+        <h1 id="removePieceFromPosition">.removePieceFromPosition</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex12"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
+    var board12 = new CanvasBoard({
+        canvasId: "ex10",
+        canvasSize: 510,
+        highlighterColor: "#000",
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        },
+        position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8"
+    });
+            </code></pre>
+            <pre><code class="javascript">
+    board12.removePieceFromPosition(position)
+            </code></pre>
+
+            <h4>Try it</h4>
+            <p>
+                Position:
+                <select id="fromCol2">
+                    <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option>
+                </select>
+                <select id="fromRow2">
+                    <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option>
+                </select>
+                <button onclick="tryFunction('removePieceFromPosition')">Remove piece from position</button>
+            </p>
+        </div>
+        <div style="clear: both"></div>
+        <hr />
+
     </div>
 
 </body>
