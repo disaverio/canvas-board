@@ -1,11 +1,13 @@
 {
   "name": "canvas-board",
-  "description": "General purpose NxN board",
+  "description": "General purpose NxM board",
   "main": [
     "src/canvas-board.js"
   ],
   "authors": [
-    { "name": "Andrea Di Saverio", "email": "disaverio.andrea@gmail.com", "homepage": "http://andreads.it" }
+    { "name": "Andrea Di Saverio",
+      "email": "disaverio.andrea@gmail.com",
+      "homepage": "http://andreads.it" }
   ],
   "license": "MIT",
   "homepage": "https://github.com/disaverio/canvas-board",
