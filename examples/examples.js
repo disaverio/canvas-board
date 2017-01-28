@@ -1,5 +1,5 @@
 var board6, board7, board8, board9, board10, board11, board12, board13;
-requirejs(["canvasBoard"], function(CanvasBoard) {
+requirejs(["CanvasBoard"], function(CanvasBoard) {
     new CanvasBoard({
         canvasId: "ex1",
         canvasWidth: 510,

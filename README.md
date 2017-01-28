@@ -26,7 +26,7 @@ bower install canvas-board
     requirejs.config({
         paths: {
             createjs: 'https://code.createjs.com/easeljs-0.8.2.min',
-            canvasBoard: 'canvas-board.min'
+            CanvasBoard: 'canvas-board.min'
         },
         shim: {
             createjs: { exports: 'createjs' }
@@ -48,7 +48,7 @@ Constructor accepts a configuration object parameter with only one mandatory att
 (examples will use [RequireJS](http://requirejs.org/))
 
 ```js
-requirejs(["canvasBoard"], function(CanvasBoard){
+requirejs(["CanvasBoard"], function(CanvasBoard){
     new CanvasBoard({
         canvasId: "myCanvas"
     });
@@ -108,14 +108,12 @@ Configuration object with all attributes, types, and default values:
 }
 ```
 
-Special parameters:
+Further explanations:
 
 - **goGame** : boolean. If true board is designed as a [go](https://en.wikipedia.org/wiki/Go_(game)) board
 - **chessGame** : object. Has three parameter that describe the labels of pawn, bishop, and rook (to improve movements)
-
-Pieces:
-
-Label of piece corresponds to filename of piece image. **Important:** board supports only .pgn extension, and names (therefore label) of one char.
+- **hooks** : object. Used to pass functions (or references to) that are automatically invoked on movements events.
+- **piecesFiles** : object. Pieces are referenced by a label of one char. If filename of pieces are different from label use this param to set a relation between label (the _key_) and correspondent filename (the _value_). **Important:** board supports only .pgn extension for image files, and labels of one char.
 
 ## API
 
@@ -150,7 +148,7 @@ Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mand
 
 ### .setPosition([position])
 Set pieces on board according to position passed as parameter. _position_ is an optional string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (coherent to current board dimensions): if no value is passed then board is cleaned.
-Each char of string indicates label of a piece. Only labels of one char are accepted.
+Each char of string indicates label of a piece.
 
 **Parameters:** (position: string) - Optional, default: nothing, clear the board  
 **Returns:** void
