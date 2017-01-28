@@ -110,10 +110,10 @@ Configuration object with all attributes, types, and default values:
 
 Further explanations:
 
-- **goGame** : boolean. If true board is designed as a [go](https://en.wikipedia.org/wiki/Go_(game)) board
-- **chessGame** : object. Has three parameter that describe the labels of pawn, bishop, and rook (to improve movements)
+- **goGame** : boolean. If true board is designed as a [go](https://en.wikipedia.org/wiki/Go_(game)) board.
+- **chessGame** : object. Has three parameter that describe the labels of pawn, bishop, and rook (to improve movements).
 - **hooks** : object. Used to pass functions (or references to) that are automatically invoked on movements events.
-- **piecesFiles** : object. Pieces are referenced by a label of one char. If filename of pieces are different from label use this param to set a relation between label (the _key_) and correspondent filename (the _value_). **Important:** board supports only .pgn extension for image files, and labels of one char.
+- **piecesFiles** : object. Pieces are referenced by a label of one char. If filenames of pieces are different from label use this param to set a relation between label (the _key_) and correspondent filename (the _value_). **Important:** board supports only .pgn extension for image files, and labels of one char.
 
 ## API
 
