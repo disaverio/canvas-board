@@ -195,15 +195,16 @@
     return function(configuration) {
 
         // private
-        var _stage, _canvas, _configuration, _selectedPiece,
+        var _stage, _canvas, _configuration,
+            _selectedPiece, // reference to piece selected by a click
             _piecesContainer, // createjs.Container containing pieces currently on board
             _loadingPieces = {}, // object containing pieces which image is loading
             _piecesBox = {}, // object containing pieces which image is yet loaded
-            _update = false,
-            _rotationDegrees = 0,
-            _listOfMovements = [],
-            _containersToRotate = [],
-            _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            _update = false, // switcher to update canvas
+            _rotationDegrees = 0, // initial rotation of board
+            _listOfMovements = [], // array containing descriptions of current movements
+            _containersToRotate = [], // array with containers that rotate in complementary way on board rotation
+            _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; // alphabet for label on horizontal board border. digits are used on vertical border
 
         function __getNumberOfChars(numberOfElements, numberOfSymbols) {
             return Math.ceil(Math.log(numberOfElements) / Math.log(numberOfSymbols));
@@ -851,13 +852,13 @@
 
                 var preMoveReturned;
                 if (_configuration.hooks.preMove) {
-                    preMoveReturned = _configuration.hooks.preMove(movement[0], movement[1], movement[2], movement[3]);
+                    preMoveReturned = _configuration.hooks.preMove(movement[0], movement[1], movement[2], movement[3]); // positionFrom, positionTo, pieceFrom, piecesTo
                 }
                 _piecesContainer.removeChild(movement[2]);
                 _piecesContainer.addChild(movement[2]);
                 var moved = this.setPieceAtPosition(movement[2], movement[1]);
                 if (_configuration.hooks.postMove) {
-                    _configuration.hooks.postMove(preMoveReturned, moved, movement[0], movement[1], movement[2], movement[3]);
+                    _configuration.hooks.postMove(movement[0], movement[1], movement[2], movement[3], preMoveReturned, moved);
                 }
 
                 movementsOccurred = moved || movementsOccurred;
