@@ -396,6 +396,53 @@
         <div style="clear: both"></div>
         <hr />
 
+        <h1 id="hooks">hooks</h1>
+        <div class="col">
+            <h4>Board</h4>
+            <canvas id="ex13"></canvas>
+        </div>
+        <div class="col">
+            <h4>Code</h4>
+            <pre><code class="javascript">
+    new CanvasBoard({
+        canvasId: "ex13",
+        canvasSize: 510,
+        highlighterColor: "#000",
+        animationOfPieces: false,
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        },
+        position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8",
+        hooks: {
+            isValidMove: isValidMoveCallback,
+            preMove: preMoveCallback,
+            postMove: postMoveCallback
+        }
+    });
+    function isValidMoveCallback(positionFrom, positionTo, pieceFrom, piecesTo) {
+        if (pieceFrom !== undefined && piecesTo.length > 0)
+            return true;
+    }
+    function preMoveCallback(positionFrom, positionTo, pieceFrom, piecesTo) {
+        alert("The piece "+ pieceFrom.label +" is going to be moved from "+ positionFrom +" to "+ positionTo +" Piece "+ piecesTo[0].label +" will be removed.");
+        return "Hi from preMove function!"
+    }
+    function postMoveCallback(positionFrom, positionTo, pieceFrom, piecesTo, returnedFromPreMove, returnedFromMove) {
+        this.removePieceFromPosition(positionTo);
+        console.log("The piece "+ pieceFrom.label +" moved from "+ positionFrom +" to "+ positionTo
+            +"\nPiece "+ piecesTo[0].label +" removed."
+            +"\nPre-move function returned:\n"+ returnedFromPreMove);
+    }
+            </code></pre>
+
+            <h4>Try it</h4>
+            <p>
+                Only moves on non-empty squares are allowed. An alert will appear right before a move, a message will appear on console right after a move. Piece on destination will be removed.
+            </p>
+        </div>
+        <div style="clear: both"></div>
+        <hr />
+
     </div>
 
 </body>

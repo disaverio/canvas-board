@@ -116,6 +116,35 @@ requirejs(["CanvasBoard"], function(CanvasBoard) {
         },
         position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8"
     });
+    new CanvasBoard({
+        canvasId: "ex13",
+        canvasSize: 510,
+        highlighterColor: "#000",
+        animationOfPieces: false,
+        piecesFiles: {
+            p: "pb", r: "rb", n: "nb", b: "bb", q: "qb", k: "kb", P: "pw", R: "rw", N: "nw", B: "bw", Q: "qw", K: "kw"
+        },
+        position: "2rq2k1/5pp1/4b1rp/1pBpP3/2pP1R2/P3QR1P/6PK/8",
+        hooks: {
+            isValidMove: isValidMoveCallback,
+            preMove: preMoveCallback,
+            postMove: postMoveCallback
+        }
+    });
+    function isValidMoveCallback(positionFrom, positionTo, pieceFrom, piecesTo) {
+        if (pieceFrom !== undefined && piecesTo.length > 0)
+            return true;
+    }
+    function preMoveCallback(positionFrom, positionTo, pieceFrom, piecesTo) {
+        alert("The piece "+ pieceFrom.label +" is going to be moved from "+ positionFrom +" to "+ positionTo +" Piece "+ piecesTo[0].label +" will be removed.");
+        return "Hi from preMove function!"
+    }
+    function postMoveCallback(positionFrom, positionTo, pieceFrom, piecesTo, returnedFromPreMove, returnedFromMove) {
+        this.removePieceFromPosition(positionTo);
+        console.log("The piece "+ pieceFrom.label +" moved from "+ positionFrom +" to "+ positionTo
+            +"\nPiece "+ piecesTo[0].label +" removed."
+            +"\nPre-move function returned:\n"+ returnedFromPreMove);
+    }
 });
 function tryFunction(f) {
     switch (f) {

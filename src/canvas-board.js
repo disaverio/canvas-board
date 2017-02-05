@@ -183,7 +183,7 @@
      *                      // signature: function preMove({String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
      *      postMove        //                                                  | function          | optional - no default: postMove is not executed
      *                      // function executed on .move() invocation, right after .move() execution.
-     *                      // signature: function postMove({?} returnedFromPreMove, {Boolean} returnedFromMove, {String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo)
+     *                      // signature: function postMove({String} positionFrom, {String} positionTo, {Object} pieceFrom, {Array} piecesTo, {?} returnedFromPreMove, {Boolean} returnedFromMove)
      *  },                  //                                                  |                   |
      *  chessGame: {        // to define properties for chess optimization      | object            | optional - no default: board is not optimized for chess
      *      pawnLabel,      // label of pawn, used in filename of piece         | string            | optional - no default: no movement optimization for pawn
@@ -836,8 +836,11 @@
 
                 piecesAtStartingPosition.forEach(function (piece) {
                     if (_configuration.hooks.isValidMove) {
-                        if (_configuration.hooks.isValidMove(positionFrom, movement[1], piece, piecesAtDestination)) {
+                        var isValidMove = _configuration.hooks.isValidMove.call(this, positionFrom, movement[1], piece, piecesAtDestination)
+                        if (isValidMove == true) {
                             movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
+                        } else if (isValidMove != false && isValidMove !=  undefined) {
+                            throw new Error(".isValidMove: invalid hook function.")
                         }
                     } else {
                         movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
@@ -852,13 +855,13 @@
 
                 var preMoveReturned;
                 if (_configuration.hooks.preMove) {
-                    preMoveReturned = _configuration.hooks.preMove(movement[0], movement[1], movement[2], movement[3]); // positionFrom, positionTo, pieceFrom, piecesTo
+                    preMoveReturned = _configuration.hooks.preMove.call(this, movement[0], movement[1], movement[2], movement[3]); // positionFrom, positionTo, pieceFrom, piecesTo
                 }
                 _piecesContainer.removeChild(movement[2]);
                 _piecesContainer.addChild(movement[2]);
                 var moved = this.setPieceAtPosition(movement[2], movement[1]);
                 if (_configuration.hooks.postMove) {
-                    _configuration.hooks.postMove(movement[0], movement[1], movement[2], movement[3], preMoveReturned, moved);
+                    _configuration.hooks.postMove.call(this, movement[0], movement[1], movement[2], movement[3], preMoveReturned, moved);
                 }
 
                 movementsOccurred = moved || movementsOccurred;
