@@ -42,7 +42,7 @@ bower install canvas-board
 ## How to use
 
 Constructor accepts a **configuration** object parameter with only one mandatory attribute: 'canvasId'.
-(examples will use [RequireJS](http://requirejs.org/))
+(example with [RequireJS](http://requirejs.org/))
 
 ```js
 requirejs(["CanvasBoard"], function(CanvasBoard){
@@ -110,10 +110,10 @@ Configuration object with all attributes, types, and default values:
 
 Further explanations:
 
-- **goGame** : boolean. If true board is designed as a [go](https://en.wikipedia.org/wiki/Go_(game)) board.
-- **chessGame** : object. Has three parameter that describe the labels of pawn, bishop, and rook (to improve movements).
-- **hooks** : object. Used to pass functions (or references to) that are automatically invoked on movements events (see below for further explanations).
-- **piecesFiles** : object. Pieces are referenced by a label of one char. If filenames of pieces are different from label use this param to set a relation between label (the _key_) and correspondent filename (the _value_). **Important:** board supports only .pgn extension for image files, and labels of one char.
+- `goGame`: boolean. If true board is designed as a [go](https://en.wikipedia.org/wiki/Go_(game)) board.
+- `chessGame`: object. Has three parameters that describe the labels of pawn, bishop, and rook (to improve movements).
+- `hooks`: object. Used to pass functions that are automatically invoked on movements events (see below for further explanations).
+- `piecesFiles`: object. Pieces are referenced by a label of one char. If filenames of pieces are different from label use this param to set a relation between label (the _key_) and correspondent filename (the _value_). **Important:** board supports only .pgn extension for image files, and labels of one char.
 
 ## API
 
@@ -123,105 +123,107 @@ See above for configuration details
 -> [example](https://disaverio.github.io/canvas-board/examples/index.html#constructor)
 
 ### .rotate([degrees])
-Rotate the board of _degrees_ degrees from current position, with animation.  
+Rotate the board of `degrees` degrees from current position, with animation.  
 
-**Parameters:** (degrees: integer) - Optional, default: 180  
-**Returns:** void
+**Parameters:** `degrees`: integer - Optional, default: 180  
+**Returns:** _void_
 
 -> [example](https://disaverio.github.io/canvas-board/examples/index.html#rotate)
 
 ### .setRotation([degrees])
-Set rotation of board to _degrees_ degrees, without animation.
+Set rotation of board to `degrees` degrees, without animation.
 
-**Parameters:** (degrees: integer) - Optional, default: 0  
-**Returns:** void
+**Parameters:** `degrees`: integer - Optional, default: 0  
+**Returns:** _void_
 
 -> [example](https://disaverio.github.io/canvas-board/examples/index.html#setRotation)
 
 ### .scale(scaleFactor)
-Rescale board, and canvas, to value passed as parameter. _scaleFactor_ is a mandatory number.
+Rescale board, and canvas, to value passed as parameter. `scaleFactor` is a mandatory number.
 
-**Parameters:** (scaleFactor: number > 0) - Mandatory  
-**Returns:** void
+**Parameters:** `scaleFactor`: number > 0 - Mandatory  
+**Returns:** _void_
 
 -> [example](https://disaverio.github.io/canvas-board/examples/index.html#scale)
 
 ### .setPosition([position])
-Set pieces on board according to position passed as parameter. _position_ is an optional string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (coherent to current board dimensions): if no value is passed then board is cleaned.
+Set pieces on board according to position passed as parameter. `position` is an optional string in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation (coherent to current board dimensions): if no value is passed then board is cleaned.
 Each char of string indicates label of a piece.
 
-**Parameters:** (position: string) - Optional, default: nothing, clear the board  
-**Returns:** void
+**Parameters:** `position`: string - Optional, default: nothing, clear the board  
+**Returns:** _void_
  
  -> [example](https://disaverio.github.io/canvas-board/examples/index.html#setPosition)
  
 ### .getPosition()
 Returns current position of board, in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)-like notation.
 
-**Parameters:** void  
+**Parameters:** _void_  
 **Returns:** string
 
 -> [example](https://disaverio.github.io/canvas-board/examples/index.html#getPosition)
 
 ### .move(startingSquare, endingSquare)
-Move a piece from _startingSquare_ square to _endingSquare_ square. _startingSquare_ and _endingSquare_ parameters are strings in the form of board coords, e.g. like "H7".
+Move a piece from `startingSquare` square to `endingSquare` square. `startingSquare` and `endingSquare` parameters are strings in the form of board coords, e.g. like "H7".
 
-**Parameters:** (startingSquare: string, endingSquare: string) - Mandatory  
+**Parameters:** `startingSquare`: string, `endingSquare`: string - Mandatory  
 **Returns:** boolean. true if move occurred, false otherwise
 
-### .move(piece, endingSquare)
-Move _piece_ piece to _endingSquare_ square. _piece_ is an instance of an existing piece and _endingSquare_ is a string in the form of board coords, e.g. like "H7".
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#move)
 
-**Parameters:** (piece: object, endingSquare: string) - Mandatory  
+### .move(piece, endingSquare)
+Move `piece` piece to `endingSquare` square. `piece` is an instance of an existing piece and `endingSquare` is a string in the form of board coords, e.g. like "H7".
+
+**Parameters:** `piece`: object, `endingSquare`: string - Mandatory  
 **Returns:** boolean. true if move occurred, false otherwise
 
 ### .move(movesList)
 Like above, but with a list of moves for simultaneous multiple moves as parameter.
 Each move is defined as an array of two strings as above. E.g. .move(["H3", "G3"], [piece, "F7"], ...)
 
-**Parameters:** (movesList: Array) - Mandatory  
+**Parameters:** `movesList`: Array - Mandatory  
 **Returns:** boolean. true if at least one move of list occurred, false otherwise
  
 ### .setPieceAtPosition(piece, endingSquare)
-Move _piece_ piece to _endingSquare_ square. _piece_ parameter is an instance of a piece (e.g. retrieved by _getPieceAtPosition()_ function) and _endingSquare_ parameter is a string in the form of board coords, e.g. like "H7.
+Move `piece` piece to `endingSquare` square. `piece` parameter is an instance of a piece (e.g. retrieved by `getPieceAtPosition()` function) and `endingSquare` parameter is a string in the form of board coords, e.g. like "H7.
 
-**Parameters:** (piece: object, endingSquare: string) - Mandatory  
+**Parameters:** `piece`: object, `endingSquare`: string - Mandatory  
 **Returns:** boolean. true if placement occurred, false otherwise
 
 ### .setPieceAtPosition(movesList)
 Like above, but with a list of moves for simultaneous multiple moves.
 Each move is defined as an array of two elements as in the previous case.
 
-**Parameters:** (movesList: Array) - Mandatory  
+**Parameters:** `movesList`: Array - Mandatory  
 **Returns:** boolean. true if at least one placement of list occurred, false otherwise
 
 ### .getPieceAtPosition(position)
 Returns piece(s) on requested position. Input parameter is a position in the form of coords, e.g. like 'E7'
 
-**Parameters:** (position: string) - Mandatory  
+**Parameters:** `position`: string - Mandatory  
 **Returns:**
-- array, of pieces on _position_  
-- object, instance of piece on _position_
-- undefined, if no piece is on _position_
+- array, of pieces on `position`  
+- object, instance of piece on `position`
+- `undefined`, if no piece is on `position`
 
 ### .removePieceFromPosition(position)
-Remove piece(s) from _position_. Input parameter is a position in the form of coords, e.g. like 'E7'
+Remove piece(s) from `position`. Input parameter is a position in the form of coords, e.g. like 'E7'
 
-**Parameters:** (position: string) - Mandatory  
+**Parameters:** `position`: string - Mandatory  
 **Returns:** boolean. true if pieces(s) are removed, false otherwise
 
 -> [example](https://disaverio.github.io/canvas-board/examples/index.html#removePieceFromPosition)
 
 ### .removePiece(piece)
-Remove _piece_ from board.
+Remove `piece` from board.
  
-**Parameters:** (piece: object) - Mandatory  
+**Parameters:** `piece`: object - Mandatory  
 **Returns:** boolean. true if pieces is removed, false otherwise    
 
 ### .getNewPiece(pieceLabel)
-Async function to instantiate a new piece. _pieceLabel_ parameter is label of requested piece.
+Async function to instantiate a new piece. `pieceLabel` parameter is label of requested piece.
 
-**Parameters:** (pieceLabel: string) - Mandatory  
+**Parameters:** `pieceLabel`: string - Mandatory  
 **Returns:** object, i.e. a promise
 
 Example of use:
@@ -256,9 +258,9 @@ Hooks (in the constructor) are used to pass functions for:
  */
 function isValidMove(positionFrom, positionTo, pieceFrom, piecesTo);
 ```
-_positionFrom_ and _positionTo_ are in the form of "H7", _pieceFrom_ is object of piece in starting square, and _piecesTo_ is array of objects pieces in ending square.
+`positionFrom` and `positionTo` are in the form of "H7", `pieceFrom` is object of piece in starting square, and `piecesTo` is array of objects pieces in ending square.
 
-**Returns:** boolean or _undefined_.
+**Returns:** boolean or `undefined`.
 
 Example of use: only moves starting from a square with a piece and ending on non-empty squares are allowed:
 
@@ -266,14 +268,15 @@ Example of use: only moves starting from a square with a piece and ending on non
 var configuration = {
     hooks: {
         isValidMove: function(positionFrom, positionTo, pieceFrom, piecesTo) {
-            if (pieceFrom !== undefined && piecesTo.length > 0)
+            if (pieceFrom !== undefined && piecesTo.length > 0) {
                 return true;
-            else
-                return false;
+            }
         }
     }
 }
 ```
+
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#hooks)
 
 ### .preMove:
 ##### signature:
@@ -286,9 +289,9 @@ var configuration = {
  */
 function preMove(positionFrom, positionTo, pieceFrom, piecesTo);
 ```
-_positionFrom_ and _positionTo_ are in the form of "H7", _pieceFrom_ is object of piece in starting square, and _piecesTo_ is array of objects pieces in ending square.
+`positionFrom` and `positionTo` are in the form of "H7", `pieceFrom` is object of piece in starting square, and `piecesTo` is array of objects pieces in ending square.
 
-**Returns:** value, passed to _postMove_ hook.
+**Returns:** user-defined. Returned value will be passed to `postMove` hook.
 
 Example of use: a message is returned and an alert with move description will appear right before the move:
 
@@ -303,6 +306,8 @@ var configuration = {
 }
 ```
 
+-> [example](https://disaverio.github.io/canvas-board/examples/index.html#hooks)
+
 ### .postMove:
 ##### signature:
 ```js
@@ -316,9 +321,9 @@ var configuration = {
  */
 function postMove(positionFrom, positionTo, pieceFrom, piecesTo, returnedFromPreMove, returnedFromMove);
 ```
-_positionFrom_ and _positionTo_ are in the form of "H7", _pieceFrom_ is object of piece in starting square, and _piecesTo_ is array of objects pieces in ending square. _returnedFromPreMove_ is value returned from _preMove()_ invocation, _returnedFromMove_ is value returned from _move()_invocation.
+`positionFrom` and `positionTo` are in the form of "H7", `pieceFrom` is object of piece in starting square, and `piecesTo` is array of objects pieces in ending square. `returnedFromPreMove` is value returned from `preMove()` invocation, `returnedFromMove` is value returned from `move()` invocation.
 
-**Returns:** _null_, any returned value is lost. 
+**Returns:** user-defined. Any returned value will be lost. 
 
 Example of use: piece on destination will be removed and a message on console with move description will appear right after the move:
 
