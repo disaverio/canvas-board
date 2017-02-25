@@ -140,7 +140,7 @@ requirejs(["CanvasBoard"], function(CanvasBoard) {
         return "Hi from preMove function!"
     }
     function postMoveCallback(positionFrom, positionTo, pieceFrom, piecesTo, returnedFromPreMove, returnedFromMove) {
-        this.removePieceFromPosition(positionTo);
+        this.removePiece(piecesTo[0]);
         console.log("The piece "+ pieceFrom.label +" moved from "+ positionFrom +" to "+ positionTo
             +"\nPiece "+ piecesTo[0].label +" removed."
             +"\nPre-move function returned:\n"+ returnedFromPreMove);

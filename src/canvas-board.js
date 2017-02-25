@@ -30,6 +30,10 @@
                                                                    global.CanvasBoard = factory(global.createjs);
 })(this, function(createjs, undefined) {
 
+    if (!createjs) {
+        throw new Error("Fatal error: createjs not imported.");
+    }
+
     /*
      * Lightweight Q-like reimplementation from scratch of Promises.
      * Chaining supported.
@@ -196,15 +200,15 @@
 
         // private
         var _stage, _canvas, _configuration,
-            _selectedPiece, // reference to piece selected by a click
-            _piecesContainer, // createjs.Container containing pieces currently on board
-            _loadingPieces = {}, // object containing pieces which image is loading
-            _piecesBox = {}, // object containing pieces which image is yet loaded
-            _update = false, // switcher to update canvas
-            _rotationDegrees = 0, // initial rotation of board
-            _listOfMovements = [], // array containing descriptions of current movements
-            _containersToRotate = [], // array with containers that rotate in complementary way on board rotation
-            _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; // alphabet for label on horizontal board border. digits are used on vertical border
+            _selectedPiece,                                         // reference to piece selected by a click
+            _piecesContainer,                                       // createjs.Container containing pieces currently on board
+            _loadingPieces = {},                                    // object containing pieces which image is loading
+            _piecesBox = {},                                        // object containing pieces which image is yet loaded
+            _update = false,                                        // switcher to update canvas
+            _rotationDegrees = 0,                                   // initial rotation of board
+            _listOfMovements = [],                                  // array containing descriptions of current movements
+            _containersToRotate = [],                               // array with containers that rotate in complementary way on board rotation
+            _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";   // alphabet for labels on horizontal board border. numeric digits are used on vertical border
 
         function __getNumberOfChars(numberOfElements, numberOfSymbols) {
             return Math.ceil(Math.log(numberOfElements) / Math.log(numberOfSymbols));
@@ -604,7 +608,7 @@
              * if no parameter is passed then clear the board
              */
 
-            if (!position) { // clean the board
+            if (position == undefined || position == '') { // clean the board
                 position = "";
                 for (var i=0; i<_configuration.blocksInAColumn; i++) {
                     if (position.length > 0) {
@@ -645,32 +649,6 @@
                             }
                         }
 
-                    }
-                }
-            }
-
-            // find pieces that are moving to the correct position
-            if (_listOfMovements.length > 0) { // if a piece is yet moving to the destination it preserves its movement
-                for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
-                    for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
-                        if (newBoard[i][j]) {
-                            for (var z = 0; z < _listOfMovements.length; z++) {
-                                var move = _listOfMovements[z];
-                                if (move.destFile == i && move.destRank == j) {
-                                    var indexInNewBoard = newBoard[i][j].indexOf(move.piece.label);
-                                    if (indexInNewBoard != -1) {
-                                        assignedPieces.push(move.piece);
-                                        listOfMovements.push(move);
-                                        if (newBoard[i][j].length == 1) {
-                                            newBoard[i][j] = undefined;
-                                            break;
-                                        } else {
-                                            newBoard[i][j].splice(indexInNewBoard, 1);
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -720,11 +698,7 @@
                                     }
 
                                     assignedPieces.push(piece);
-                                    listOfMovements.push({
-                                        piece: piece,
-                                        destFile: i,
-                                        destRank: j
-                                    });
+                                    listOfMovements.push([piece, _getPositionLabelFromFileRank(i, j)]);
                                     if (newBoard[i][j].length == 1) {
                                         newBoard[i][j] = undefined;
                                         break;
@@ -763,7 +737,7 @@
                                         piece.x = xStarting;
                                         piece.y = yStarting;
                                         this.setPieceAtPosition(piece, _getPositionLabelFromFileRank(file, rank));
-                                    }).bind(this)
+                                    }).bind(this);
                                 }).call(this, i, j)
                             ).catch(function (error) {
                                 console.log(error);
@@ -773,8 +747,8 @@
                 }
             }
 
-            // start movements
-            _listOfMovements = _listOfMovements.concat(listOfMovements);
+            // set pieces positions
+            this.setPieceAtPosition.apply(this, listOfMovements);
         };
 
         this.getPosition = function () {
@@ -887,7 +861,7 @@
 
             var thereArePiecesToMove = false;
 
-            movements.forEach((function (movement) {
+            movements.forEach(function (movement) {
 
                 if (!_isPiece(movement[0]) || !_isPositionLabel(movement[1])) {
                     return;
@@ -928,17 +902,19 @@
                     });
                 }
 
+                piece.file = file;
+                piece.rank = rank;
+
                 thereArePiecesToMove = true;
 
-            }).bind(this));
+            });
 
             if (!thereArePiecesToMove) {
                 return false;
+            } else {
+                _listOfMovements = _listOfMovements.concat(movementsList);
+                return true;
             }
-
-            _listOfMovements = _listOfMovements.concat(movementsList);
-
-            return true;
         };
 
         this.getPieceAtPosition = function (position) {
@@ -1189,17 +1165,17 @@
 
                         boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
 
-                        var currentSquare = undefined;
+                        var currentSquare = undefined; // block where mouse released
                         if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn) {
                             currentSquare = file + _configuration.blocksInARow * rank;
                         }
 
-                        if (currentSquare == undefined) {
+                        if (currentSquare == undefined) { // release click outside board
                             piece.x = piece.startPosition.x;
                             piece.y = piece.startPosition.y;
                             _update = true;
                         } else {
-                            if (currentSquare != piece.file + _configuration.blocksInARow * piece.rank) {
+                            if (currentSquare != piece.file + _configuration.blocksInARow * piece.rank) { // released on different block where piece was
                                 var destPosition = _getPositionLabelFromFileRank(file, rank);
                                 var moved = this.move(piece, destPosition);
 
@@ -1222,12 +1198,13 @@
                                     blockHighlighter.name = "blockHighlighter";
                                     boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren() - 1);
                                 } else {
-                                    var destPosition = _getPositionLabelFromFileRank(file, rank);
-                                    var moved = this.move(_selectedPiece, destPosition);
-                                    if (!moved) {
-                                        _selectedPiece.x = _selectedPiece.startPosition.x;
-                                        _selectedPiece.y = _selectedPiece.startPosition.y;
-                                        _update = true;
+                                    if (piece != _selectedPiece) {
+                                        var destPosition = _getPositionLabelFromFileRank(file, rank);
+                                        var moved = this.move(_selectedPiece, destPosition);
+                                        if (!moved) {
+                                            _selectedPiece.x = _selectedPiece.startPosition.x;
+                                            _selectedPiece.y = _selectedPiece.startPosition.y;
+                                        }
                                     }
                                     _selectedPiece.scaleX = _selectedPiece.scaleY = _selectedPiece.scale;
                                     _selectedPiece.shadow = null;
@@ -1589,10 +1566,6 @@
                             var distY = (xyCoords.y - move.piece.y);
 
                             if (_configuration.animationOfPieces) {
-                                if (move.piece.file != undefined || move.piece.rank != undefined) {
-                                    move.piece.file = undefined;
-                                    move.piece.rank = undefined;
-                                }
                                 _listOfMovements[i].piece.x += distX * 0.2;
                                 _listOfMovements[i].piece.y += distY * 0.2;
                             }
@@ -1600,8 +1573,6 @@
                             if (!_configuration.animationOfPieces || (Math.abs(distY) <= 1 && Math.abs(distX) <= 1)) {
                                 move.piece.x = xyCoords.x;
                                 move.piece.y = xyCoords.y;
-                                move.piece.file = move.destFile;
-                                move.piece.rank = move.destRank;
 
                                 _listOfMovements.splice(i, 1);
                             }
