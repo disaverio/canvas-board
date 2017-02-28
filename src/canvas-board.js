@@ -202,12 +202,12 @@
         var _stage, _canvas, _configuration,
             _selectedPiece,                                         // reference to piece selected by a click
             _piecesContainer,                                       // createjs.Container containing pieces currently on board
-            _loadingPieces = {},                                    // object containing pieces which image is loading
-            _piecesBox = {},                                        // object containing pieces which image is yet loaded
+            _loadingPieces = {},                                    // object containing pieces whose image is loading
+            _piecesBox = {},                                        // object containing pieces whose image is yet loaded
             _update = false,                                        // switcher to update canvas
             _rotationDegrees = 0,                                   // initial rotation of board
             _listOfMovements = [],                                  // array containing descriptions of current movements
-            _containersToRotate = [],                               // array with containers that rotate in complementary way on board rotation
+            _containersToRotate = [],                               // array with containers whose elements will be rotated in complementary way on board rotation
             _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";   // alphabet for labels on horizontal board border. numeric digits are used on vertical border
 
         function __getNumberOfChars(numberOfElements, numberOfSymbols) {
@@ -776,6 +776,10 @@
             var movementsArrayWithPiece = [];
             movements.forEach((function (movement) {
 
+                if (!movement) {
+                    return;
+                }
+
                 var piecesAtStartingPosition, positionFrom;
 
                 if (_isPiece(movement[0])) {
@@ -810,7 +814,7 @@
 
                 piecesAtStartingPosition.forEach(function (piece) {
                     if (_configuration.hooks.isValidMove) {
-                        var isValidMove = _configuration.hooks.isValidMove.call(this, positionFrom, movement[1], piece, piecesAtDestination)
+                        var isValidMove = _configuration.hooks.isValidMove.call(this, positionFrom, movement[1], piece, piecesAtDestination);
                         if (isValidMove == true) {
                             movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
                         } else if (isValidMove != false && isValidMove !=  undefined) {
@@ -1065,9 +1069,21 @@
 
                     piece.addEventListener("mousedown", (function (evt) {
                         var piece = evt.target;
+
+                        for (var i = 0; i < _listOfMovements.length; i++) {
+                            if (_listOfMovements[i].piece == piece) {
+                                _listOfMovements.splice(i,1);
+                                break;
+                            }
+                        }
+
+                        var xyCoords = {};
+                        if (piece.file != undefined && piece.rank != undefined) {
+                            xyCoords = _getXYCoordsFromFileRank(piece.file, piece.rank);
+                        }
                         piece.startPosition = {
-                            x: piece.x,
-                            y: piece.y
+                            x: xyCoords.x || piece.x,
+                            y: xyCoords.y || piece.y
                         };
                         if (!_selectedPiece) {
                             var boardContainer = _stage.getChildByName("boardContainer");
@@ -1341,6 +1357,8 @@
                         if (_selectedPiece) {
                             boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
                             var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+                            if (pt.x < 0) pt.x = 0; // easeljs bug?
+                            if (pt.y < 0) pt.y = 0; // easeljs bug?
                             var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
                             var blockHighlighter = new createjs.Shape();
                             blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
@@ -1491,12 +1509,12 @@
                                 var elementRotation = 0;
                                 if (turnsAmount > 0) {
                                     elementRotation = ((4 - (boardStartingSection - boardDestinationSection)) % 4) * -90;
-                                    if (elementRotation == 0 && turnsAmount >= 45) {
+                                    if (elementRotation == 0 && turnsAmount >= 90) {
                                         elementRotation = -360;
                                     }
                                 } else if (turnsAmount < 0) {
                                     elementRotation = ((4 + (boardStartingSection - boardDestinationSection)) % 4) * 90;
-                                    if (elementRotation == 0 && turnsAmount < -45) {
+                                    if (elementRotation == 0 && turnsAmount < -90) {
                                         elementRotation = 360;
                                     }
                                 }
