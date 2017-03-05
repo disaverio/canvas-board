@@ -35,7 +35,7 @@
     }
 
     /*
-     * Lightweight Q-like reimplementation from scratch of Promises.
+     * Lightweight Q-like reimplementation from scratch of Promises basic functionalities.
      * Chaining supported.
      */
     var customQ = {
@@ -732,13 +732,11 @@
                         for (var z = 0; z<newBoard[i][j].length; z++) {
                             var promise = this.getNewPiece(newBoard[i][j][z]);
                             promise.then(
-                                (function (file, rank) {
-                                    return (function (piece) {
-                                        piece.x = xStarting;
-                                        piece.y = yStarting;
-                                        this.setPieceAtPosition(piece, _getPositionLabelFromFileRank(file, rank));
-                                    }).bind(this);
-                                }).call(this, i, j)
+                                (function (file, rank, piece) {
+                                    piece.x = xStarting;
+                                    piece.y = yStarting;
+                                    this.setPieceAtPosition(piece, _getPositionLabelFromFileRank(file, rank));
+                                }).bind(this, i, j)
                             ).catch(function (error) {
                                 console.log(error);
                             });
