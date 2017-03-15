@@ -12,21 +12,21 @@ See [examples page](https://disaverio.github.io/canvas-board/examples/index.html
 
 ## Installation
 
-###Import lib
+### Import lib
 
-#####With [Bower package manager](https://bower.io/):
+##### With [Bower package manager](https://bower.io/):
 ```sh
 bower install canvas-board
 ```
 
-#####By download
+##### By download
 Get `dist/canvas-board.min.js`
 
-###Include in project
+### Include in project
 
 `canvas-board.js` supports [CommonJS](http://www.commonjs.org/) and [AMD](https://github.com/amdjs/amdjs-api/wiki/AMD) module formats.
 
-#####With AMD loader (e.g. [RequireJS](http://requirejs.org/)):
+##### With AMD loader (e.g. [RequireJS](http://requirejs.org/)):
 RequireJS inclusion:
 ```html
 <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.2/require.min.js"></script>
@@ -50,7 +50,7 @@ requirejs(["CanvasBoard"], function(CanvasBoard){
 });
 ```
 
-#####Direct include:
+##### Direct include:
 ```html
 <script src="https://code.createjs.com/easeljs-0.8.2.min.js"></script>
 <script src="canvas-board.min.js"></script>
