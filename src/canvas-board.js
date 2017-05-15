@@ -34,8 +34,10 @@
         throw new Error("Fatal error: createjs not imported.");
     }
 
+    var H_BOARD_LABELS_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";   // alphabet for labels on horizontal board border. numeric digits are used on vertical border
+
     /*
-     * Lightweight Q-like reimplementation from scratch of Promises basic functionalities.
+     * Lightweight Q-like reimplementation of Promises basic functionalities.
      * Chaining supported.
      */
     var customQ = {
@@ -145,6 +147,351 @@
         }
     };
 
+    function _getNumberOfChars(numberOfElements, numberOfSymbols) {
+        return Math.ceil(Math.log(numberOfElements) / Math.log(numberOfSymbols));
+    }
+
+    function getNumberOfCharsInHorizontalBoardLabels(blocksInARow) {
+        return _getNumberOfChars(blocksInARow, H_BOARD_LABELS_ALPHABET.length) || 1;
+    }
+
+    function getNumberOfCharsInVerticalBoardLabels(blocksInAColumn) {
+        return _getNumberOfChars(blocksInAColumn, 10) || 1;
+    }
+
+    function getFileRankFromPositionLabel(positionLabel, blocksInARow) {
+
+        var charsInHorizontalLabel = getNumberOfCharsInHorizontalBoardLabels(blocksInARow);
+        var fileLabel = positionLabel.substr(0, charsInHorizontalLabel);
+        var rankLabel = positionLabel.substr(charsInHorizontalLabel);
+
+        var file = 0;
+        for (var i = 0; i < charsInHorizontalLabel; i++) {
+            file += H_BOARD_LABELS_ALPHABET.indexOf(fileLabel.charAt(i)) * Math.pow(H_BOARD_LABELS_ALPHABET.length, charsInHorizontalLabel - (i + 1));
+        }
+        var rank = rankLabel - 1;
+
+        return {
+            file: file,
+            rank: rank
+        };
+    }
+
+    function getPositionLabelFromFileRank(file, rank, blocksInARow) {
+
+        var charsInLabel = getNumberOfCharsInHorizontalBoardLabels(blocksInARow);
+        var label = "";
+        for (var j = charsInLabel; j > 0; j--) {
+            label += H_BOARD_LABELS_ALPHABET.charAt(Math.floor((file % Math.pow(H_BOARD_LABELS_ALPHABET.length, j)) / Math.pow(H_BOARD_LABELS_ALPHABET.length, j - 1)));
+        }
+
+        label += (rank + 1);
+
+        return label;
+    }
+
+    function getXYCoordsFromFileRank(file, rank, blocksInAColumn, blockSize, marginBetweenBlocksSize) {
+        return {
+            x: file * (blockSize + marginBetweenBlocksSize) + blockSize / 2,
+            y: (blocksInAColumn - rank - 1) * (blockSize + marginBetweenBlocksSize) + blockSize / 2 // the coord y==0 is at the top, but row 0 is at the bottom
+        };
+    }
+
+    function getFileRankFromXYCoords(x, y, blocksInAColumn, blockSize, marginBetweenBlocksSize) {
+        return {
+            file: Math.floor((x + (marginBetweenBlocksSize / 2)) / (blockSize + marginBetweenBlocksSize)),
+            rank: blocksInAColumn - Math.floor((y + (marginBetweenBlocksSize / 2)) / (blockSize + marginBetweenBlocksSize)) - 1
+        };
+    }
+
+    function isPositionLabel(string, blocksInARow, blocksInAColumn) {//SI
+        /*
+         * check if passed param is a valid position label
+         */
+
+        if (typeof string !== 'string') {
+            return false;
+        }
+
+        var charsInHorizontalLabel = getNumberOfCharsInHorizontalBoardLabels(blocksInARow);
+
+        var fileLabel = string.substr(0, charsInHorizontalLabel);
+        var file = 0;
+        for (var i = 0; i < charsInHorizontalLabel; i++) {
+            var charIndex = H_BOARD_LABELS_ALPHABET.indexOf(fileLabel.charAt(i));
+            if (charIndex < 0) {
+                return false;
+            }
+            file += charIndex * Math.pow(H_BOARD_LABELS_ALPHABET.length, charsInHorizontalLabel - (i + 1));
+        }
+        if (file >= blocksInARow) {
+            return false;
+        }
+
+        var rankLabel = string.substr(charsInHorizontalLabel);
+        if (!Number.isInteger(parseInt(rankLabel, 10)) || parseInt(rankLabel, 10) < 1 || parseInt(rankLabel, 10) > blocksInAColumn) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function isArray(object) {
+        if (Array.isArray)
+            return Array.isArray(object);
+
+        return typeof object !== 'undefined' && object && object.constructor === Array;
+    }
+
+    function isPiece(object, piecesBox) {
+        if (typeof object === 'object' && object.label && piecesBox[object.label]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function getCurrentBoard(piecesContainer, blocksInARow, blocksInAColumn) {
+        /*
+         * returns: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+         *          If a position has no pieces the corresponding element is undefined.
+         */
+
+        var currentBoard = [];
+        for (var i = 0; i < blocksInARow; i++) { // add an array for each column
+            var col = [];
+            for (var j = 0; j < blocksInAColumn; j++) { // add an undefined element for each row of column
+                col.push(undefined);
+            }
+            currentBoard.push(col);
+        }
+        for (var i = 0; i < piecesContainer.getNumChildren(); i++) {
+            var piece = piecesContainer.getChildAt(i);
+            if (piece.rank != undefined && piece.file != undefined) {
+                if (!currentBoard[piece.file][piece.rank]) {
+                    currentBoard[piece.file][piece.rank] = [];
+                }
+                currentBoard[piece.file][piece.rank].push(piece.label);
+            }
+        }
+
+        return currentBoard;
+    }
+
+    function getFenFromBoard(board) {
+        /*
+         * input: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+         *        If a position has no pieces the corresponding element can be undefined or can be an empty array.
+         * output: fen-like string that describes position.
+         */
+
+        if (!isArray(board)) {
+            throw new Error("getFenFromBoard: invalid input parameter");
+        }
+
+        var numberOfColumns = board.length;
+        var numberOfRows;
+        for(var i = 0; i < numberOfColumns; i++) {
+            if (!isArray(board[i])) {
+                throw new Error("getFenFromBoard: invalid input parameter");
+            }
+            if (i == 0) {
+                numberOfRows = board[i].length;
+            } else {
+                if (numberOfRows != board[i].length) {
+                    throw new Error("getFenFromBoard: invalid input parameter");
+                }
+            }
+            for(var j = 0; j < numberOfRows; j++) {
+                if (board[i][j] != undefined && !isArray(board[i][j])) {
+                    throw new Error("getFenFromBoard: invalid input parameter");
+                }
+            }
+        }
+        if (!numberOfRows) {
+            throw new Error("getFenFromBoard: invalid input parameter");
+        }
+
+        var fen = '';
+        for (var i = numberOfRows - 1; i >= 0; i--) {
+            if (i != numberOfRows - 1) {
+                fen += '/';
+            }
+            var temp = 0;
+            for (var j = 0; j < numberOfColumns; j++) {
+                if (board[j][i] && board[j][i].length > 0) {
+                    if (temp > 0) {
+                        fen += temp;
+                        temp = 0;
+                    }
+                    if (board[j][i].length == 1) {
+                        fen += board[j][i][0];
+                    } else {
+                        fen += "[";
+                        for (var k = 0; k < board[j][i].length; k++) {
+                            fen += board[j][i][k];
+                        }
+                        fen += "]";
+                    }
+                } else {
+                    temp++;
+                }
+            }
+            if (temp > 0) {
+                fen += temp;
+            }
+        }
+
+        return fen;
+    }
+
+    function getBoardFromFen(fenPosition) {
+        /*
+         * input: fen-like string that describes position.
+         * output: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+         *         If a position has no pieces the corresponding element is undefined.
+         */
+
+        var rows = fenPosition.split("/");
+
+        var numberOfRows = rows.length;
+        var numberOfColumns;
+        for(var i = 0; i < numberOfRows; i++) {
+            if (i == 0) {
+                numberOfColumns = getRowLength(rows[i]);
+            } else {
+                if (numberOfColumns != getRowLength(rows[i])) {
+                    throw new Error("getBoardFromFen: invalid input parameter");
+                }
+            }
+        }
+
+        var newBoard = [];
+        for (var i = 0; i < numberOfColumns; i++) { // add an array for each column
+            var col = [];
+            for (var j = 0; j < numberOfRows; j++) { // add an undefined element for each row of column
+                col.push(undefined);
+            }
+            newBoard.push(col);
+        }
+        for (var i = 0; i < numberOfRows; i++) {
+            var temp = 0;
+            for (var j = 0; j < rows[i].length;) {
+                if (isNaN(rows[i][j])) {
+                    var piecesOnBlock = [];
+
+                    if (rows[i][j] == "[") {
+                        j++;
+                        while (rows[i][j] != "]") {
+                            piecesOnBlock.push(rows[i][j]);
+                            j++;
+                        }
+                        j++;
+                    } else {
+                        piecesOnBlock.push(rows[i][j]);
+                        j++;
+                    }
+
+                    newBoard[temp][numberOfRows-i-1] = piecesOnBlock;
+                    temp++;
+                } else {
+                    for (var z = 1; z + j < rows[i].length; z++) { // calc chars length of number
+                        if (isNaN(rows[i][j + z])) {
+                            break;
+                        }
+                    }
+                    var lengthOfNumber = z;
+                    var number = rows[i].substr(j, lengthOfNumber);
+                    temp += parseInt(number, 10);
+                    j += lengthOfNumber;
+                }
+            }
+        }
+
+        return newBoard;
+
+        function getRowLength(row) {
+            var length = 0;
+            for (var j = 0; j < row.length;) {
+                if (isNaN(row[j])) {
+                    if (row[j] != "[") {
+                        j++;
+                    } else {
+                        var founded = false;
+                        for (var z = 1; z + j < row.length; z++) { // get length of string "[....]"
+                            if (row[j + z] == "]") {
+                                founded = true;
+                                break;
+                            }
+                        }
+                        if (!founded) {
+                            throw new Error("getBoardFromFen: invalid input parameter");
+                        }
+                        j += z + 1;
+                    }
+                    length++;
+                } else {
+                    for (var z = 1; z + j < row.length; z++) { // calc chars length of number
+                        if (isNaN(row[j + z])) {
+                            break;
+                        }
+                    }
+                    var lengthOfNumber = z;
+                    var number = row.substr(j, lengthOfNumber);
+                    length += parseInt(number, 10);
+                    j += lengthOfNumber;
+                }
+            }
+            return length;
+        }
+    }
+
+    function createPiece(pieceLabel, loadingPieces, piecesBox, piecesFolder, piecesFiles) {//SI
+
+        var deferred = customQ.defer();
+
+        if (!piecesBox[pieceLabel]) {
+            if (!loadingPieces[pieceLabel]) {
+
+                var pieceImage = new Image();
+                pieceImage.src = piecesFolder + "/" + (piecesFiles[pieceLabel] || pieceLabel) + ".png";
+
+                pieceImage.onload = function (e) {
+
+                    var loadedPiece = e.target;
+                    piecesBox[pieceLabel] = loadedPiece;
+
+                    loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
+                        deferred.resolve(loadedPiece);
+                    });
+
+                    delete loadingPieces[pieceLabel];
+                };
+
+                pieceImage.onerror = function (e) {
+
+                    loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
+                        deferred.reject("Error loading piece " + pieceLabel);
+                    });
+
+                    delete loadingPieces[pieceLabel];
+                };
+
+                loadingPieces[pieceLabel] = {
+                    piece: pieceImage,
+                    deferreds: []
+                };
+            }
+
+            loadingPieces[pieceLabel].deferreds.push(deferred);
+
+        } else {
+            deferred.resolve(piecesBox[pieceLabel]);
+        }
+
+        return deferred.promise;
+    }
+
     /**
      * @constructor
      * @param {Object} configuration {
@@ -196,1222 +543,191 @@
      *  }
      * }
      */
-    return function(configuration) {
+    function CanvasBoard(configuration) {
 
         // private
-        var _stage, _canvas, _configuration,
-            _selectedPiece,                                         // reference to piece selected by a click
-            _piecesContainer,                                       // createjs.Container containing pieces currently on board
-            _loadingPieces = {},                                    // object containing pieces whose image is loading
-            _piecesBox = {},                                        // object containing pieces whose image is yet loaded
-            _update = false,                                        // switcher to update canvas
-            _rotationDegrees = 0,                                   // initial rotation of board
-            _listOfMovements = [],                                  // array containing descriptions of current movements
-            _containersToRotate = [],                               // array with containers whose elements will be rotated in complementary way on board rotation
-            _hBoardLabelsAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";   // alphabet for labels on horizontal board border. numeric digits are used on vertical border
-
-        function __getNumberOfChars(numberOfElements, numberOfSymbols) {
-            return Math.ceil(Math.log(numberOfElements) / Math.log(numberOfSymbols));
-        }
-
-        function _getNumberOfCharsInHorizontalBoardLabels() {
-            return __getNumberOfChars(_configuration.blocksInARow, _hBoardLabelsAlphabet.length) || 1;
-        }
-
-        function _getNumberOfCharsInVerticalBoardLabels() {
-            return __getNumberOfChars(_configuration.blocksInAColumn, 10) || 1;
-        }
-
-        function _getFileRankFromPositionLabel(positionLabel) {
-
-            var charsInHorizontalLabel = _getNumberOfCharsInHorizontalBoardLabels();
-            var fileLabel = positionLabel.substr(0, charsInHorizontalLabel);
-            var rankLabel = positionLabel.substr(charsInHorizontalLabel);
-
-            var file = 0;
-            for (var i = 0; i < charsInHorizontalLabel; i++) {
-                file += _hBoardLabelsAlphabet.indexOf(fileLabel.charAt(i)) * Math.pow(_hBoardLabelsAlphabet.length, charsInHorizontalLabel - (i + 1));
-            }
-            var rank = rankLabel - 1;
-
-            return {
-                file: file,
-                rank: rank
-            };
-        }
-
-        function _getPositionLabelFromFileRank(file, rank) {
-
-            var charsInLabel = _getNumberOfCharsInHorizontalBoardLabels();
-            var label = "";
-            for (var j = charsInLabel; j > 0; j--) {
-                label += _hBoardLabelsAlphabet.charAt(Math.floor((file % Math.pow(_hBoardLabelsAlphabet.length, j)) / Math.pow(_hBoardLabelsAlphabet.length, j - 1)));
-            }
-
-            label += (rank + 1);
-
-            return label;
-        }
-
-        function _getXYCoordsFromFileRank(file, rank) {
-            return {
-                x: file * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2,
-                y: (_configuration.blocksInAColumn - rank - 1) * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2 // the coord y==0 is at the top, but row 0 is at the bottom
-            };
-        }
-
-        function _getFileRankFromXYCoords(x, y) {
-            return {
-                file: Math.floor((x + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize)),
-                rank: _configuration.blocksInAColumn - Math.floor((y + (_configuration.marginBetweenBlocksSize / 2)) / (_configuration.blockSize + _configuration.marginBetweenBlocksSize)) - 1
-            };
-        }
-
-        function _isPositionLabel(string) {
-            /*
-             * check if passed param is a valid position label
-             */
-
-            if (typeof arguments[0] !== 'string') {
-                return false;
-            }
-
-            var charsInHorizontalLabel = _getNumberOfCharsInHorizontalBoardLabels();
-
-            var fileLabel = string.substr(0, charsInHorizontalLabel);
-            var file = 0;
-            for (var i = 0; i < charsInHorizontalLabel; i++) {
-                var charIndex = _hBoardLabelsAlphabet.indexOf(fileLabel.charAt(i));
-                if (charIndex < 0) {
-                    return false;
-                }
-                file += charIndex * Math.pow(_hBoardLabelsAlphabet.length, charsInHorizontalLabel - (i + 1));
-            }
-            if (file >= _configuration.blocksInARow) {
-                return false;
-            }
-
-            var rankLabel = string.substr(charsInHorizontalLabel);
-            if (!Number.isInteger(parseInt(rankLabel, 10)) || parseInt(rankLabel, 10) < 1 || parseInt(rankLabel, 10) > _configuration.blocksInAColumn) {
-                return false;
-            }
-
-            return true;
-        }
-
-        function _isArray(object) {
-            if (Array.isArray)
-                return Array.isArray(object);
-
-            return typeof object !== 'undefined' && object && object.constructor === Array;
-        }
-
-        function _isPiece(object) {
-            if (typeof object === 'object' && object.label && _piecesBox[object.label]) {
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        function _getCurrentBoard() {
-            /*
-             * returns: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
-             *          If a position has no pieces the corresponding element is undefined.
-             */
-
-            var currentBoard = [];
-            for (var i = 0; i < _configuration.blocksInARow; i++) { // add an array for each column
-                var col = [];
-                for (var j = 0; j < _configuration.blocksInAColumn; j++) { // add an undefined element for each row of column
-                    col.push(undefined);
-                }
-                currentBoard.push(col);
-            }
-            for (var i = 0; i < _piecesContainer.getNumChildren(); i++) {
-                var piece = _piecesContainer.getChildAt(i);
-                if (piece.rank != undefined && piece.file != undefined) {
-                    if (!currentBoard[piece.file][piece.rank]) {
-                        currentBoard[piece.file][piece.rank] = [];
-                    }
-                    currentBoard[piece.file][piece.rank].push(piece.label);
-                }
-            }
-
-            return currentBoard;
-        }
-
-        function _getFenFromBoard(board) {
-            /*
-             * input: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
-             *        If a position has no pieces the corresponding element can be undefined or can be an empty array.
-             * output: fen-like string that describes position.
-             */
-
-            if (!_isArray(board)) {
-                throw new Error("_getFenFromBoard: invalid input parameter");
-            }
-
-            var numberOfColumns = board.length;
-            var numberOfRows;
-            for(var i = 0; i < numberOfColumns; i++) {
-                if (!_isArray(board[i])) {
-                    throw new Error("_getFenFromBoard: invalid input parameter");
-                }
-                if (i == 0) {
-                    numberOfRows = board[i].length;
-                } else {
-                    if (numberOfRows != board[i].length) {
-                        throw new Error("_getFenFromBoard: invalid input parameter");
-                    }
-                }
-                for(var j = 0; j < numberOfRows; j++) {
-                    if (board[i][j] != undefined && !_isArray(board[i][j])) {
-                        throw new Error("_getFenFromBoard: invalid input parameter");
-                    }
-                }
-            }
-            if (!numberOfRows) {
-                throw new Error("_getFenFromBoard: invalid input parameter");
-            }
-
-            var fen = '';
-            for (var i = numberOfRows - 1; i >= 0; i--) {
-                if (i != numberOfRows - 1) {
-                    fen += '/';
-                }
-                var temp = 0;
-                for (var j = 0; j < numberOfColumns; j++) {
-                    if (board[j][i] && board[j][i].length > 0) {
-                        if (temp > 0) {
-                            fen += temp;
-                            temp = 0;
-                        }
-                        if (board[j][i].length == 1) {
-                            fen += board[j][i][0];
-                        } else {
-                            fen += "[";
-                            for (var k = 0; k < board[j][i].length; k++) {
-                                fen += board[j][i][k];
-                            }
-                            fen += "]";
-                        }
-                    } else {
-                        temp++;
-                    }
-                }
-                if (temp > 0) {
-                    fen += temp;
-                }
-            }
-
-            return fen;
-        }
-
-        function _getBoardFromFen(fenPosition) {
-            /*
-             * input: fen-like string that describes position.
-             * output: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
-             *         If a position has no pieces the corresponding element is undefined.
-             */
-
-            var rows = fenPosition.split("/");
-
-            var numberOfRows = rows.length;
-            var numberOfColumns;
-            for(var i = 0; i < numberOfRows; i++) {
-                if (i == 0) {
-                    numberOfColumns = getRowLength(rows[i]);
-                } else {
-                    if (numberOfColumns != getRowLength(rows[i])) {
-                        throw new Error("_getBoardFromFen: invalid input parameter");
-                    }
-                }
-            }
-
-            var newBoard = [];
-            for (var i = 0; i < numberOfColumns; i++) { // add an array for each column
-                var col = [];
-                for (var j = 0; j < numberOfRows; j++) { // add an undefined element for each row of column
-                    col.push(undefined);
-                }
-                newBoard.push(col);
-            }
-            for (var i = 0; i < numberOfRows; i++) {
-                var temp = 0;
-                for (var j = 0; j < rows[i].length;) {
-                    if (isNaN(rows[i][j])) {
-                        var piecesOnBlock = [];
-
-                        if (rows[i][j] == "[") {
-                            j++;
-                            while (rows[i][j] != "]") {
-                                piecesOnBlock.push(rows[i][j]);
-                                j++;
-                            }
-                            j++;
-                        } else {
-                            piecesOnBlock.push(rows[i][j]);
-                            j++;
-                        }
-
-                        newBoard[temp][numberOfRows-i-1] = piecesOnBlock;
-                        temp++;
-                    } else {
-                        for (var z = 1; z + j < rows[i].length; z++) { // calc chars length of number
-                            if (isNaN(rows[i][j + z])) {
-                                break;
-                            }
-                        }
-                        var lengthOfNumber = z;
-                        var number = rows[i].substr(j, lengthOfNumber);
-                        temp += parseInt(number, 10);
-                        j += lengthOfNumber;
-                    }
-                }
-            }
-
-            return newBoard;
-
-            function getRowLength(row) {
-                var length = 0;
-                for (var j = 0; j < row.length;) {
-                    if (isNaN(row[j])) {
-                        if (row[j] != "[") {
-                            j++;
-                        } else {
-                            var founded = false;
-                            for (var z = 1; z + j < row.length; z++) { // get length of string "[....]"
-                                if (row[j + z] == "]") {
-                                    founded = true;
-                                    break;
-                                }
-                            }
-                            if (!founded) {
-                                throw new Error("_getBoardFromFen: invalid input parameter");
-                            }
-                            j += z + 1;
-                        }
-                        length++;
-                    } else {
-                        for (var z = 1; z + j < row.length; z++) { // calc chars length of number
-                            if (isNaN(row[j + z])) {
-                                break;
-                            }
-                        }
-                        var lengthOfNumber = z;
-                        var number = row.substr(j, lengthOfNumber);
-                        length += parseInt(number, 10);
-                        j += lengthOfNumber;
-                    }
-                }
-                return length;
-            }
-        }
-
-        function _createPiece(pieceLabel) {
-
-            var deferred = customQ.defer();
-
-            if (!_piecesBox[pieceLabel]) {
-                if (!_loadingPieces[pieceLabel]) {
-
-                    var pieceImage = new Image();
-                    pieceImage.src = _configuration.piecesFolder + "/" + (_configuration.piecesFiles[pieceLabel] || pieceLabel) + ".png";
-
-                    pieceImage.onload = function (e) {
-
-                        var loadedPiece = e.target;
-                        _piecesBox[pieceLabel] = loadedPiece;
-
-                        _loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
-                            deferred.resolve(loadedPiece);
-                        });
-
-                        delete _loadingPieces[pieceLabel];
-                    };
-
-                    pieceImage.onerror = function (e) {
-
-                        _loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
-                            deferred.reject("Error loading piece " + pieceLabel);
-                        });
-
-                        delete _loadingPieces[pieceLabel];
-                    };
-
-                    _loadingPieces[pieceLabel] = {
-                        piece: pieceImage,
-                        deferreds: []
-                    };
-                }
-
-                _loadingPieces[pieceLabel].deferreds.push(deferred);
-
-            } else {
-                deferred.resolve(_piecesBox[pieceLabel]);
-            }
-
-            return deferred.promise;
-        }
-
-        this.rotate = function (degrees) {
-
-            if (degrees !== undefined && !Number.isInteger(degrees)) {
-                throw new Error("rotate: passed value is not an integer.");
-            }
-
-            _rotationDegrees = degrees || 180;
-        };
-
-        this.setRotation = function (degrees) {
-
-            if (degrees !== undefined && !Number.isInteger(degrees)) {
-                throw new Error("setRotation: passed value is not an integer.");
-            }
-
-            degrees = degrees || 0;
-
-            _stage.rotation = ((degrees % 360) + 360) % 360; // to make destination in [0, 360]
-
-            var elementRotation = Math.floor(((_stage.rotation + 45) % 360) / 90) * -90;
-
-            for (var i = 0; i < _containersToRotate.length; i++) {
-                var container = _containersToRotate[i];
-                for (var j = 0; j < container.getNumChildren(); j++) {
-                    var element = container.getChildAt(j);
-                    element.rotation = (elementRotation) % 360;
-                }
-            }
-
-            _update = true;
-        };
-
-        this.scale = function (scaleFactor) {
-
-            if (scaleFactor === undefined || isNaN(scaleFactor) || scaleFactor < 0) {
-                throw new Error("scale: invalid scale parameter.");
-            }
-
-            _canvas.width = _configuration.canvasWidth * scaleFactor;
-            _canvas.height = _configuration.canvasHeight * scaleFactor;
-
-            _stage.scaleX = _stage.scaleY = _stage.scale = scaleFactor;
-            _stage.x = _configuration.canvasWidth * scaleFactor / 2;
-            _stage.y = _configuration.canvasHeight * scaleFactor / 2;
-            _update = true;
-        };
-
-        this.setPosition = function (position) {
-            /*
-             * gets position in FEN notation as input and sets board
-             * if no parameter is passed then clear the board
-             */
-
-            if (position == undefined || position == '') { // clean the board
-                position = "";
-                for (var i=0; i<_configuration.blocksInAColumn; i++) {
-                    if (position.length > 0) {
-                        position += "/";
-                    }
-                    position += _configuration.blocksInARow;
-                }
-            }
-
-            var currentBoard = _getCurrentBoard();
-            var newBoard = _getBoardFromFen(position);
-
-            if (newBoard.length != _configuration.blocksInARow || newBoard[0].length != _configuration.blocksInAColumn) {
-                throw new Error("setPosition: invalid input parameter.");
-            }
-
-            // temp vars for computation
-            var assignedPieces = [];
-            var listOfMovements = [];
-
-            // find pieces that yet are in the correct position
-            for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
-                for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
-                    if (currentBoard[i][j] && newBoard[i][j]) {
-                        for (var z = 0; z < _piecesContainer.getNumChildren(); z++) {
-                            var piece = _piecesContainer.getChildAt(z);
-                            if (piece.file == i && piece.rank == j) {
-                                var indexInNewBoard = newBoard[i][j].indexOf(piece.label);
-                                if (indexInNewBoard != -1 && currentBoard[i][j].indexOf(piece.label) != -1) {
-                                    assignedPieces.push(piece);
-                                    if (newBoard[i][j].length == 1) {
-                                        newBoard[i][j] = undefined;
-                                        break;
-                                    } else {
-                                        newBoard[i][j].splice(indexInNewBoard, 1);
-                                    }
-                                }
-                            }
-                        }
-
-                    }
-                }
-            }
-
-            // find pieces on board to move
-            for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
-                for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
-                    if (newBoard[i][j]) {
-                        for (var z = 0; z < _piecesContainer.getNumChildren(); z++) {
-                            var piece = _piecesContainer.getChildAt(z);
-                            if (assignedPieces.indexOf(piece) == -1) {
-                                var indexInNewBoard = newBoard[i][j].indexOf(piece.label);
-                                if (indexInNewBoard != -1) { // if true piece is a candidate to reach (i,j) position
-                                    var distance = Math.pow((piece.file - i), 2) + Math.pow((piece.rank - j), 2);
-                                    for (var k = z + 1; k < _piecesContainer.getNumChildren(); k++) {
-                                        var alternativePiece = _piecesContainer.getChildAt(k);
-                                        if (newBoard[i][j].indexOf(alternativePiece.label) != -1 && assignedPieces.indexOf(alternativePiece) == -1) { // search for a piece for a more consistent movement
-                                            var alternativeDistance = 0;
-
-                                            if (_configuration.chessGame.bishopLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.bishopLabel.toUpperCase()) {
-                                                if (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) { // found a bishop of correct square color, while current selected bishop is on a square with of not correct color
-                                                    piece = alternativePiece;
-                                                } else if ((((alternativePiece.rank + alternativePiece.file) % 2 != (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) || (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 == (i + j) % 2))) { // both bishops are on squares of same color
-                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                                }
-                                            } else if (_configuration.chessGame.rookLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.rookLabel.toUpperCase()) {
-                                                if ((alternativePiece.file == i || alternativePiece.rank == j) && !(piece.file == i || piece.rank == j)) { // alternative rook has correct file or rank, while current selected rook not
-                                                    piece = alternativePiece;
-                                                } else { // check alternative rook by distance
-                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                                }
-                                            } else if (_configuration.chessGame.pawnLabel && alternativePiece.label.toUpperCase() == _configuration.chessGame.pawnLabel.toUpperCase()) {
-                                                if (alternativePiece.file == i && piece.file != i) { // alternative pawn has correct file, while current pawn not
-                                                    piece = alternativePiece;
-                                                } else if ((alternativePiece.file == i && piece.file == i) || (alternativePiece.file != i && piece.file != i)) {
-                                                    alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                                }
-                                            } else {
-                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
-                                            }
-
-                                            if (alternativeDistance && alternativeDistance < distance) {
-                                                distance = alternativeDistance;
-                                                piece = alternativePiece;
-                                            }
-                                        }
-                                    }
-
-                                    assignedPieces.push(piece);
-                                    listOfMovements.push([piece, _getPositionLabelFromFileRank(i, j)]);
-                                    if (newBoard[i][j].length == 1) {
-                                        newBoard[i][j] = undefined;
-                                        break;
-                                    } else {
-                                        newBoard[i][j].splice(indexInNewBoard, 1);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // remove pieces that have no position
-            for (var i = _piecesContainer.getNumChildren() - 1; i >= 0; i--) {
-                var piece = _piecesContainer.getChildAt(i);
-                if (assignedPieces.indexOf(piece) == -1) {
-                    this.removePiece(piece);
-                }
-            }
-
-            // add missing pieces
-            var xStarting, yStarting;
-            if (_piecesContainer.getNumChildren() == 0 && _configuration.animationOfPieces) { // if board is empty and animation is active then movements of new position start from center of board
-                xStarting = _configuration.allBlocksWidth / 2;
-                yStarting = _configuration.allBlocksHeight / 2;
-            }
-            for (var i = 0; i < _configuration.blocksInARow; i++) { // file (column)
-                for (var j = 0; j < _configuration.blocksInAColumn; j++) { // rank (row)
-                    if (newBoard[i][j]) {
-                        for (var z = 0; z<newBoard[i][j].length; z++) {
-                            var promise = this.getNewPiece(newBoard[i][j][z]);
-                            promise.then(
-                                (function (file, rank, piece) {
-                                    piece.x = xStarting;
-                                    piece.y = yStarting;
-                                    this.setPieceAtPosition(piece, _getPositionLabelFromFileRank(file, rank));
-                                }).bind(this, i, j)
-                            ).catch(function (error) {
-                                console.log(error);
-                            });
-                        }
-                    }
-                }
-            }
-
-            // set pieces positions
-            this.setPieceAtPosition.apply(this, listOfMovements);
-        };
-
-        this.getPosition = function () {
-            /*
-             * returns board position in FEN-like notation
-             */
-
-            return _getFenFromBoard(_getCurrentBoard());
-        };
-
-        this.move = function (/* arguments: see comment */) {
-            /*
-             * Possible inputs:
-             *   1. ("H3", "G3") // couple of position labels for single move
-             *   2. (piece, "G3") // instance of a piece and position label
-             *   3. (["H3", "G3"], [piece, "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
-             */
-
-            if (arguments.length == 2 && (_isPositionLabel(arguments[0]) || _isPiece(arguments[0])) && _isPositionLabel(arguments[1])) { // method overload
-                return this.move([arguments[0], arguments[1]]);
-            }
-
-            var movements = Array.prototype.slice.call(arguments);
-
-            var movementsArrayWithPiece = [];
-            movements.forEach((function (movement) {
-
-                if (!movement) {
-                    return;
-                }
-
-                var piecesAtStartingPosition, positionFrom;
-
-                if (_isPiece(movement[0])) {
-                    positionFrom = _getPositionLabelFromFileRank(movement[0].file, movement[0].rank);
-                    piecesAtStartingPosition = [movement[0]];
-                } else if (_isPositionLabel(movement[0])) {
-                    positionFrom = movement[0];
-                    piecesAtStartingPosition = this.getPieceAtPosition(positionFrom);
-                    if (piecesAtStartingPosition) {
-                        if (!_isArray(piecesAtStartingPosition)) {
-                            piecesAtStartingPosition = [piecesAtStartingPosition];
-                        }
-                    } else {
-                        return;
-                    }
-                } else {
-                    return;
-                }
-
-                if (!_isPositionLabel(movement[1])) {
-                    return;
-                }
-
-                var piecesAtDestination = this.getPieceAtPosition(movement[1]);
-                if (piecesAtDestination) {
-                    if (!_isArray(piecesAtDestination)) {
-                        piecesAtDestination = [piecesAtDestination];
-                    }
-                } else {
-                    piecesAtDestination = [];
-                }
-
-                piecesAtStartingPosition.forEach(function (piece) {
-                    if (_configuration.hooks.isValidMove) {
-                        var isValidMove = _configuration.hooks.isValidMove.call(this, positionFrom, movement[1], piece, piecesAtDestination);
-                        if (isValidMove == true) {
-                            movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
-                        } else if (isValidMove != false && isValidMove !=  undefined) {
-                            throw new Error(".isValidMove: invalid hook function.")
-                        }
-                    } else {
-                        movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
-                    }
-                });
-
-            }).bind(this));
-
-            var movementsOccurred = false;
-
-            movementsArrayWithPiece.forEach((function(movement) {
-
-                var preMoveReturned;
-                if (_configuration.hooks.preMove) {
-                    preMoveReturned = _configuration.hooks.preMove.call(this, movement[0], movement[1], movement[2], movement[3]); // positionFrom, positionTo, pieceFrom, piecesTo
-                }
-                _piecesContainer.removeChild(movement[2]);
-                _piecesContainer.addChild(movement[2]);
-                var moved = this.setPieceAtPosition(movement[2], movement[1]);
-                if (_configuration.hooks.postMove) {
-                    _configuration.hooks.postMove.call(this, movement[0], movement[1], movement[2], movement[3], preMoveReturned, moved);
-                }
-
-                movementsOccurred = moved || movementsOccurred;
-            }).bind(this));
-
-            return movementsOccurred;
-        };
-
-        this.setPieceAtPosition = function (/* arguments: see comment */) {
-            /*
-             * Possible inputs:
-             *   1. (piece, "H7") // instance of piece and position label of destination
-             *   2. ([piece1, "H7"], [piece2, "G3"], .....) // list of arrays of two elements (as above) for multiple moves simultaneously
-             */
-
-            if (arguments.length == 2 && _isPiece(arguments[0]) && _isPositionLabel(arguments[1])) { // method overload
-                return this.setPieceAtPosition([arguments[0], arguments[1]]);
-            }
-
-            var movements = Array.prototype.slice.call(arguments);
-
-            var movementsList = [];
-
-            var thereArePiecesToMove = false;
-
-            movements.forEach(function (movement) {
-
-                if (!_isPiece(movement[0]) || !_isPositionLabel(movement[1])) {
-                    return;
-                }
-
-                var piece = movement[0];
-                var position = movement[1];
-
-                var numericPosition = _getFileRankFromPositionLabel(position);
-                var file = numericPosition.file;
-                var rank = numericPosition.rank;
-
-                if (!_piecesContainer.contains(piece)) {
-                    if (!piece.x || !piece.y) { // a new piece (with no x,y coords) is immediately placed in the position without movement
-                        var xyCoords = _getXYCoordsFromFileRank(file, rank);
-                        piece.x = xyCoords.x;
-                        piece.y = xyCoords.y;
-                    }
-                    _piecesContainer.addChild(piece);
-                }
-
-                var yetMoving = false;
-                for (var i = 0; i < _listOfMovements.length; i++) {
-                    var move = _listOfMovements[i];
-                    if (move.piece == piece) {
-                        move.destFile = file;
-                        move.destRank = rank;
-                        yetMoving = true;
-                        break;
-                    }
-                }
-
-                if (!yetMoving) {
-                    movementsList.push({
-                        piece: piece,
-                        destFile: file,
-                        destRank: rank
-                    });
-                }
-
-                piece.file = file;
-                piece.rank = rank;
-
-                thereArePiecesToMove = true;
-
-            });
-
-            if (!thereArePiecesToMove) {
-                return false;
-            } else {
-                _listOfMovements = _listOfMovements.concat(movementsList);
-                return true;
-            }
-        };
-
-        this.getPieceAtPosition = function (position) {
-            /*
-             * returns  - array of pieces on position passed as parameter
-             *          - or single piece if there is only one piece on position
-             *          - undefined if no piece is in position
-             */
-
-            if (!_isPositionLabel(position)) {
-                throw new Error("getPieceAtPosition: invalid position.")
-            }
-
-            var numericPosition = _getFileRankFromPositionLabel(position);
-
-            var file = numericPosition.file;
-            var rank = numericPosition.rank;
-
-            var piecesOnPosition = [];
-
-            for (var i = _piecesContainer.getNumChildren()-1; i >= 0; i--) {
-                var piece = _piecesContainer.getChildAt(i);
-                if (piece.file == file && piece.rank == rank) {
-                    piecesOnPosition.push(piece);
-                }
-            }
-
-            return piecesOnPosition.length == 0 ? undefined :
-                   piecesOnPosition.length == 1 ? piecesOnPosition[0] :
-                                                  piecesOnPosition;
-        };
-
-        this.removePieceFromPosition = function (position) {
-            // remove all pieces from position passed as parameter
-
-            if (!_isPositionLabel(position)) {
-                throw new Error("removePieceFromPosition: invalid position.")
-            }
-
-            var pieces = this.getPieceAtPosition(position);
-
-            if (!pieces) {
-                return false;
-            }
-
-            if (!_isArray(pieces)) {
-                pieces = [pieces];
-            }
-
-            pieces.forEach((function (piece) {
-                _piecesContainer.removeChild(piece);
-            }).bind(this));
-
-            _update = true;
-
-            return true;
-        };
-
-        this.removePiece = function (piece) {
-
-            if (!_isPiece(piece)) {
-                throw new Error("removePiece: invalid input parameter.")
-            }
-
-            if (_piecesContainer.contains(piece)) {
-                _piecesContainer.removeChild(piece);
-                _update = true;
-                return true;
-            }
-
-            return false;
-        };
-
-        this.getNewPiece = function (pieceLabel) { // input: label of piece
-            /*
-             * async function that returns a promise!
-             *
-             * Use:
-             *  var promise = myBoard.getNewPiece("p");
-             *  promise.then(function(requestedPiece) {
-             *       // piece handling
-             *  }).catch(function(errorGettingPiece) {
-             *       // error handling
-             *  });
-             *
-             *  .then() chaining and .catch() chaining is supported
-             */
-
-            var deferred = customQ.defer();
-
-            var promise = _createPiece(pieceLabel);
-
-            promise.then((function (piece) {
-
-                var piece = new createjs.Bitmap(piece);
-                piece.label = pieceLabel;
-                piece.regX = piece.regY = _piecesBox[pieceLabel].width / 2;
-                piece.scaleX = piece.scaleY = piece.scale = (_configuration.blockSize * 0.9) / _piecesBox[pieceLabel].width;
-
-                piece.x = undefined;
-                piece.y = undefined;
-
-                var boardSection = Math.floor(((_stage.rotation + 45) % 360) / 90);
-                piece.rotation = boardSection * -90;
-
-                if (_configuration.actionsOnPieces) {
-
-                    piece.cursor = "pointer";
-                    piece.hitArea = new createjs.Shape();
-                    piece.hitArea.graphics.beginFill("#000")
-                        .drawRect(0, 0, _piecesBox[pieceLabel].width, _piecesBox[pieceLabel].height);
-
-                    piece.addEventListener("rollover", (function (evt) {
-                        if (!_selectedPiece) {
-                            var piece = evt.target;
-                            piece.scaleX = piece.scaleY = piece.scale * 1.25;
-                            piece.shadow = new createjs.Shadow(_configuration.shadowColor, 3, 3, 5);
-                            _update = true;
-                        } else {
-                            _stage.getChildByName("boardContainer").removeChild(_stage.getChildByName("boardContainer").getChildByName("blockHighlighter"));
-                            var pt = _stage.getChildByName("boardContainer").globalToLocal(evt.stageX, evt.stageY);
-                            var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
-                            var blockHighlighter = new createjs.Shape();
-                            blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
-                                .setStrokeStyle(_configuration.highlighterSize)
-                                .drawRect(
-                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * numericPosition.file + _configuration.highlighterSize / 2,
-                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - numericPosition.rank - 1) + _configuration.highlighterSize / 2,
-                                    _configuration.blockSize - _configuration.highlighterSize,
-                                    _configuration.blockSize - _configuration.highlighterSize);
-                            blockHighlighter.name = "blockHighlighter";
-                            _stage.getChildByName("boardContainer").addChildAt(blockHighlighter, _stage.getChildByName("boardContainer").getNumChildren() - 1);
-                            _update = true;
-                        }
-                    }).bind(this));
-
-                    piece.addEventListener("rollout", (function (evt) {
-                        if (!_selectedPiece) {
-                            var piece = evt.target;
-                            piece.scaleX = piece.scaleY = piece.scale;
-                            piece.shadow = null;
-                            _update = true;
-                        } else {
-                            _stage.getChildByName("boardContainer").removeChild(_stage.getChildByName("boardContainer").getChildByName("blockHighlighter"));
-                            _update = true;
-                        }
-                    }).bind(this));
-
-                    piece.addEventListener("mousedown", (function (evt) {
-                        var piece = evt.target;
-
-                        for (var i = 0; i < _listOfMovements.length; i++) {
-                            if (_listOfMovements[i].piece == piece) {
-                                _listOfMovements.splice(i,1);
-                                break;
-                            }
-                        }
-
-                        var xyCoords = {};
-                        if (piece.file != undefined && piece.rank != undefined) {
-                            xyCoords = _getXYCoordsFromFileRank(piece.file, piece.rank);
-                        }
-                        piece.startPosition = {
-                            x: xyCoords.x || piece.x,
-                            y: xyCoords.y || piece.y
-                        };
-                        if (!_selectedPiece) {
-                            var boardContainer = _stage.getChildByName("boardContainer");
-                            var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
-
-                            _piecesContainer.removeChild(piece);
-                            _piecesContainer.addChild(piece);
-
-                            piece.x = pt.x;
-                            piece.y = pt.y;
-
-                            _update = true;
-                        }
-                    }).bind(this));
-
-                    piece.addEventListener("pressmove", (function (evt) {
-                        var piece = evt.target;
-                        var boardContainer = _stage.getChildByName("boardContainer");
-                        var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
-
-                        if (_selectedPiece) {
-                            boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
-                            _selectedPiece.scaleX = _selectedPiece.scaleY = _selectedPiece.scale;
-                            _selectedPiece.shadow = null;
-                            _selectedPiece = undefined;
-
-                            piece.scaleX = piece.scaleY = piece.scale * 1.25;
-                            piece.shadow = new createjs.Shadow(_configuration.shadowColor, 3, 3, 5);
-
-                            _piecesContainer.removeChild(piece);
-                            _piecesContainer.addChild(piece);
-
-                            piece.x = pt.x;
-                            piece.y = pt.y;
-
-                            _update = true;
-                        }
-
-                        var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
-
-                        var file = numericPosition.file;
-                        var rank = numericPosition.rank;
-
-                        piece.x = pt.x;
-                        piece.y = pt.y;
-
-                        var currentSquare = undefined;
-                        if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn) {
-                            currentSquare = file + _configuration.blocksInARow * rank;
-                        }
-
-                        if (currentSquare != piece.currentSquare) {
-                            boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
-                            piece.currentSquare = currentSquare;
-                            if (currentSquare != undefined) {
-                                if (_configuration.type == 'linesGrid') { // add an highlighter circle at cross of lines
-                                    var blockHighlighter = new createjs.Shape();
-                                    blockHighlighter.alpha = 0.8;
-                                    blockHighlighter.graphics
-                                        .beginFill(_configuration.highlighterColor)
-                                        .drawCircle(
-                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (piece.currentSquare % _configuration.blocksInARow) + _configuration.blockSize / 2,
-                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - Math.floor(piece.currentSquare / _configuration.blocksInARow) - 1) + _configuration.blockSize / 2,
-                                            _configuration.highlighterSize * 2.5);
-
-                                    blockHighlighter.name = "blockHighlighter";
-                                } else { // add an highlighter border to block
-                                    var blockHighlighter = new createjs.Shape();
-                                    blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
-                                        .setStrokeStyle(_configuration.highlighterSize)
-                                        .drawRect(
-                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * file + _configuration.highlighterSize / 2,
-                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - rank - 1) + _configuration.highlighterSize / 2,
-                                            _configuration.blockSize - _configuration.highlighterSize,
-                                            _configuration.blockSize - _configuration.highlighterSize);
-                                    blockHighlighter.name = "blockHighlighter";
-                                }
-
-                                boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren()-1);
-                            }
-                        }
-
-                        _update = true;
-                    }).bind(this));
-
-                    piece.addEventListener("pressup", (function (evt) {
-                        var piece = evt.target;
-                        var boardContainer = _stage.getChildByName("boardContainer");
-                        var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
-
-                        var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
-
-                        var file = numericPosition.file;
-                        var rank = numericPosition.rank;
-
-                        boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
-
-                        var currentSquare = undefined; // block where mouse released
-                        if (file >= 0 && file < _configuration.blocksInARow && rank >= 0 && rank < _configuration.blocksInAColumn) {
-                            currentSquare = file + _configuration.blocksInARow * rank;
-                        }
-
-                        if (currentSquare == undefined) { // release click outside board
-                            piece.x = piece.startPosition.x;
-                            piece.y = piece.startPosition.y;
-                            _update = true;
-                        } else {
-                            if (currentSquare != piece.file + _configuration.blocksInARow * piece.rank) { // released on different block where piece was
-                                var destPosition = _getPositionLabelFromFileRank(file, rank);
-                                var moved = this.move(piece, destPosition);
-
-                                if (!moved) {
-                                    piece.x = piece.startPosition.x;
-                                    piece.y = piece.startPosition.y;
-                                    _update = true;
-                                }
-                            } else {
-                                if (!_selectedPiece) {
-                                    _selectedPiece = piece;
-                                    var blockHighlighter = new createjs.Shape();
-                                    blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
-                                        .setStrokeStyle(_configuration.highlighterSize)
-                                        .drawRect(
-                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * file + _configuration.highlighterSize / 2,
-                                            (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - rank - 1) + _configuration.highlighterSize / 2,
-                                            _configuration.blockSize - _configuration.highlighterSize,
-                                            _configuration.blockSize - _configuration.highlighterSize);
-                                    blockHighlighter.name = "blockHighlighter";
-                                    boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren() - 1);
-                                } else {
-                                    if (piece != _selectedPiece) {
-                                        var destPosition = _getPositionLabelFromFileRank(file, rank);
-                                        var moved = this.move(_selectedPiece, destPosition);
-                                        if (!moved) {
-                                            _selectedPiece.x = _selectedPiece.startPosition.x;
-                                            _selectedPiece.y = _selectedPiece.startPosition.y;
-                                        }
-                                    }
-                                    _selectedPiece.scaleX = _selectedPiece.scaleY = _selectedPiece.scale;
-                                    _selectedPiece.shadow = null;
-                                    _selectedPiece = undefined;
-                                }
-
-                                piece.x = piece.startPosition.x;
-                                piece.y = piece.startPosition.y;
-                                _update = true;
-                            }
-                        }
-                    }).bind(this));
-                }
-
-                deferred.resolve(piece);
-
-            }).bind(this)).catch(function (error) {
-                deferred.reject(error);
-            });
-
-            return deferred.promise;
-        };
+        this.stage;
+        this.canvas;
+        this.configuration;
+        this.selectedPiece;                                         // reference to piece selected by a click
+        this.piecesContainer;                                       // createjs.Container containing pieces currently on board
+        this.loadingPieces = {};                                    // object containing pieces whose image is loading
+        this.piecesBox = {};                                        // object containing pieces whose image is yet loaded
+        this.update = false;                                        // switcher to update canvas
+        this.rotationDegrees = 0;                                   // initial rotation of board
+        this.listOfMovements = [];                                  // array containing descriptions of current movements
+        this.containersToRotate = [];                               // array with containers whose elements will be rotated in complementary way on board rotation
 
         // let's go!
         ((function() {
 
             /*
              * Elements stack:
-             *   _stage
+             *   this.stage
              *     |--borderContainer
              *     |    |--border
-             *     |    |--labelsContainer      -> added to _containersToRotate
+             *     |    |--labelsContainer      -> added to this.containersToRotate
              *     |--boardContainer
              *          |--blocksBorder         // exists only if there is space between block
              *          |--blocksContainer
              *          |--blockHighlighter     // exists only during piece pressmove event
-             *          |--_piecesContainer     -> added to _containersToRotate
+             *          |--this.piecesContainer     -> added to this.containersToRotate
              */
 
             if (!configuration || !configuration.canvasId) {
                 throw new Error("CanvasBoard: configuration object and canvasId property are mandatory.");
             }
 
-            _canvas = document.getElementById(configuration.canvasId);
+            this.canvas = document.getElementById(configuration.canvasId);
 
-            _configuration = setValues(configuration);
+            this.configuration = setValues(configuration);
 
-            _canvas.width = _configuration.canvasWidth;
-            _canvas.height = _configuration.canvasHeight;
+            this.canvas.width = this.configuration.canvasWidth;
+            this.canvas.height = this.configuration.canvasHeight;
 
-            _stage = new createjs.Stage(_canvas);
-            _stage.scaleX = _stage.scaleY = _stage.scale = 1;
-            _stage.regX = _configuration.canvasWidth / 2;
-            _stage.regY = _configuration.canvasHeight / 2;
-            _stage.x = _configuration.canvasWidth / 2;
-            _stage.y = _configuration.canvasHeight / 2;
-            _stage.enableMouseOver(40);
-            _stage.mouseMoveOutside = true;
-            _stage.rotation = 0;
+            this.stage = new createjs.Stage(this.canvas);
+            this.stage.scaleX = this.stage.scaleY = this.stage.scale = 1;
+            this.stage.regX = this.configuration.canvasWidth / 2;
+            this.stage.regY = this.configuration.canvasHeight / 2;
+            this.stage.x = this.configuration.canvasWidth / 2;
+            this.stage.y = this.configuration.canvasHeight / 2;
+            this.stage.enableMouseOver(40);
+            this.stage.mouseMoveOutside = true;
+            this.stage.rotation = 0;
 
-            if (_configuration.borderSize > 0) {
+            if (this.configuration.borderSize > 0) {
                 var borderContainer = new createjs.Container();
 
                 var border = new createjs.Shape();
                 border.graphics
-                    .beginStroke(_configuration.borderColor)
-                    .setStrokeStyle(_configuration.borderSize)
-                    .drawRect(_configuration.borderSize / 2 + _configuration.shadowSize + _configuration.boardPaddingWidthSize,
-                              _configuration.borderSize / 2 + _configuration.shadowSize + _configuration.boardPaddingHeightSize,
-                              _configuration.allBlocksWidth + _configuration.borderSize,
-                              _configuration.allBlocksHeight + _configuration.borderSize);
-                border.shadow = new createjs.Shadow(_configuration.shadowColor, 0, 0, 15);
+                    .beginStroke(this.configuration.borderColor)
+                    .setStrokeStyle(this.configuration.borderSize)
+                    .drawRect(this.configuration.borderSize / 2 + this.configuration.shadowSize + this.configuration.boardPaddingWidthSize,
+                              this.configuration.borderSize / 2 + this.configuration.shadowSize + this.configuration.boardPaddingHeightSize,
+                              this.configuration.allBlocksWidth + this.configuration.borderSize,
+                              this.configuration.allBlocksHeight + this.configuration.borderSize);
+                border.shadow = new createjs.Shadow(this.configuration.shadowColor, 0, 0, 15);
 
                 borderContainer.addChild(border);
 
-                if (_configuration.coords) {
+                if (this.configuration.coords) {
                     var labelsContainer = new createjs.Container();
-                    var labelSize = Math.min(Math.floor(_configuration.borderSize * 0.6), _configuration.blockSize);
-                    addLabelsToContainer(labelsContainer, labelSize, "V");
-                    addLabelsToContainer(labelsContainer, labelSize, "H");
-                    _containersToRotate.push(labelsContainer);
+                    var labelSize = Math.min(Math.floor(this.configuration.borderSize * 0.6), this.configuration.blockSize);
+                    addLabelsToContainer.call(this, labelsContainer, labelSize, "V");
+                    addLabelsToContainer.call(this, labelsContainer, labelSize, "H");
+                    this.containersToRotate.push(labelsContainer);
 
                     borderContainer.addChild(labelsContainer);
                 }
-                _stage.addChild(borderContainer);
+                this.stage.addChild(borderContainer);
             }
 
             var boardContainer = new createjs.Container();
-            boardContainer.regX = _configuration.allBlocksWidth / 2;
-            boardContainer.regY = _configuration.allBlocksHeight / 2;
-            boardContainer.x = _configuration.canvasWidth / 2;
-            boardContainer.y = _configuration.canvasHeight / 2;
+            boardContainer.regX = this.configuration.allBlocksWidth / 2;
+            boardContainer.regY = this.configuration.allBlocksHeight / 2;
+            boardContainer.x = this.configuration.canvasWidth / 2;
+            boardContainer.y = this.configuration.canvasHeight / 2;
             boardContainer.scaleX = boardContainer.scaleY = boardContainer.scale = 1;
             boardContainer.name = "boardContainer";
 
-            if (_configuration.marginBetweenBlocksSize > 0) {
+            if (this.configuration.marginBetweenBlocksSize > 0) {
 
                 var blocksBorder = new createjs.Shape();
                 var blocksBorderGraphic = blocksBorder.graphics;
 
                 blocksBorderGraphic
-                    .beginStroke(_configuration.marginColor)
-                    .setStrokeStyle(_configuration.marginBetweenBlocksSize);
+                    .beginStroke(this.configuration.marginColor)
+                    .setStrokeStyle(this.configuration.marginBetweenBlocksSize);
 
-                for (var i = 0; i < _configuration.blocksInARow - 1; i++) {
+                for (var i = 0; i < this.configuration.blocksInARow - 1; i++) {
                     blocksBorderGraphic
-                        .moveTo(_configuration.blockSize + _configuration.marginBetweenBlocksSize / 2 + (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * i, 0)
-                        .lineTo(_configuration.blockSize + _configuration.marginBetweenBlocksSize / 2 + (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * i, _configuration.allBlocksHeight);
+                        .moveTo(this.configuration.blockSize + this.configuration.marginBetweenBlocksSize / 2 + (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * i, 0)
+                        .lineTo(this.configuration.blockSize + this.configuration.marginBetweenBlocksSize / 2 + (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * i, this.configuration.allBlocksHeight);
                 }
-                for (var i = 0; i < _configuration.blocksInAColumn - 1; i++) {
+                for (var i = 0; i < this.configuration.blocksInAColumn - 1; i++) {
                     blocksBorderGraphic
-                        .moveTo(0, _configuration.blockSize + _configuration.marginBetweenBlocksSize / 2 + (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * i)
-                        .lineTo(_configuration.allBlocksWidth, _configuration.blockSize + _configuration.marginBetweenBlocksSize / 2 + (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * i);
+                        .moveTo(0, this.configuration.blockSize + this.configuration.marginBetweenBlocksSize / 2 + (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * i)
+                        .lineTo(this.configuration.allBlocksWidth, this.configuration.blockSize + this.configuration.marginBetweenBlocksSize / 2 + (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * i);
                 }
 
                 boardContainer.addChild(blocksBorder);
             }
 
             var blocksContainer = new createjs.Container();
-            for (var i = 0; i < _configuration.blocksInARow * _configuration.blocksInAColumn; i++) {
-                var columnOfBlock = i % _configuration.blocksInARow; // file
-                var rowOfBlock = Math.floor(i / _configuration.blocksInARow); // rank
+            for (var i = 0; i < this.configuration.blocksInARow * this.configuration.blocksInAColumn; i++) {
+                var columnOfBlock = i % this.configuration.blocksInARow; // file
+                var rowOfBlock = Math.floor(i / this.configuration.blocksInARow); // rank
 
                 var block = new createjs.Shape();
-                block.graphics.beginFill(getBlockColour(columnOfBlock, rowOfBlock)).drawRect(0, 0, _configuration.blockSize, _configuration.blockSize);
+                block.graphics.beginFill(getBlockColour.call(this, columnOfBlock, rowOfBlock)).drawRect(0, 0, this.configuration.blockSize, this.configuration.blockSize);
 
-                var xyCoord = _getXYCoordsFromFileRank(columnOfBlock, rowOfBlock);
+                var xyCoord = getXYCoordsFromFileRank(columnOfBlock, rowOfBlock, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
                 block.x = xyCoord.x;
                 block.y = xyCoord.y;
-                block.regY = block.regX = _configuration.blockSize / 2;
+                block.regY = block.regX = this.configuration.blockSize / 2;
 
-                if (_configuration.actionsOnPieces ) {
+                if (this.configuration.actionsOnPieces ) {
                     block.addEventListener("rollover", (function (evt) {
-                        if (_selectedPiece) {
+                        if (this.selectedPiece) {
                             boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
                             var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
                             if (pt.x < 0) pt.x = 0; // easeljs bug?
                             if (pt.y < 0) pt.y = 0; // easeljs bug?
-                            var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
+                            var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
                             var blockHighlighter = new createjs.Shape();
-                            blockHighlighter.graphics.beginStroke(_configuration.highlighterColor)
-                                .setStrokeStyle(_configuration.highlighterSize)
+                            blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
+                                .setStrokeStyle(this.configuration.highlighterSize)
                                 .drawRect(
-                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * numericPosition.file + _configuration.highlighterSize / 2,
-                                    (_configuration.blockSize + _configuration.marginBetweenBlocksSize) * (_configuration.blocksInAColumn - numericPosition.rank - 1) + _configuration.highlighterSize / 2,
-                                    _configuration.blockSize - _configuration.highlighterSize,
-                                    _configuration.blockSize - _configuration.highlighterSize);
+                                    (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * numericPosition.file + this.configuration.highlighterSize / 2,
+                                    (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * (this.configuration.blocksInAColumn - numericPosition.rank - 1) + this.configuration.highlighterSize / 2,
+                                    this.configuration.blockSize - this.configuration.highlighterSize,
+                                    this.configuration.blockSize - this.configuration.highlighterSize);
                             blockHighlighter.name = "blockHighlighter";
                             boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren() - 1);
-                            _update = true;
+                            this.update = true;
                         }
                     }).bind(this));
 
                     block.addEventListener("rollout", (function (evt) {
-                        if (_selectedPiece) {
+                        if (this.selectedPiece) {
                             boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
-                            _update = true;
+                            this.update = true;
                         }
                     }).bind(this));
                     block.addEventListener("pressup", (function (evt) {
-                        if (_selectedPiece) {
+                        if (this.selectedPiece) {
                             boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
                             var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
-                            var numericPosition = _getFileRankFromXYCoords(pt.x, pt.y);
-                            var destPosition = _getPositionLabelFromFileRank(numericPosition.file, numericPosition.rank);
-                            var moved = this.move(_selectedPiece, destPosition);
+                            var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                            var destPosition = getPositionLabelFromFileRank(numericPosition.file, numericPosition.rank, this.configuration.blocksInARow);
+                            var moved = this.move(this.selectedPiece, destPosition);
                             if (!moved) {
-                                _selectedPiece.x = _selectedPiece.startPosition.x;
-                                _selectedPiece.y = _selectedPiece.startPosition.y;
+                                this.selectedPiece.x = this.selectedPiece.startPosition.x;
+                                this.selectedPiece.y = this.selectedPiece.startPosition.y;
                             }
-                            _selectedPiece.scaleX = _selectedPiece.scaleY = _selectedPiece.scale;
-                            _selectedPiece.shadow = null;
-                            _selectedPiece = undefined;
-                            _update = true;
+                            this.selectedPiece.scaleX = this.selectedPiece.scaleY = this.selectedPiece.scale;
+                            this.selectedPiece.shadow = null;
+                            this.selectedPiece = undefined;
+                            this.update = true;
                         }
                     }).bind(this));
                 }
 
-                if (_configuration.type == 'linesGrid') {
-                    drawBlockLines(block, columnOfBlock, rowOfBlock);
+                if (this.configuration.type == 'linesGrid') {
+                    drawBlockLines.call(this, block, columnOfBlock, rowOfBlock);
                 }
 
                 blocksContainer.addChild(block);
             }
             boardContainer.addChild(blocksContainer);
 
-            _piecesContainer = new createjs.Container();
-            _containersToRotate.push(_piecesContainer);
-            boardContainer.addChild(_piecesContainer);
+            this.piecesContainer = new createjs.Container();
+            this.containersToRotate.push(this.piecesContainer);
+            boardContainer.addChild(this.piecesContainer);
 
-            _stage.addChild(boardContainer);
+            this.stage.addChild(boardContainer);
 
-            createjs.Ticker.addEventListener("tick", (function () {
+            createjs.Ticker.addEventListener("tick", ((function () {
 
                 var
                     // animation semaphores
@@ -1422,12 +738,12 @@
                     enlargeFirstTick = false,
                     turnsFirstTick = false,
 
-                    rescalationExecutionTime = _configuration.rotationDuration * 0.2, // 20% of animation time is for rescaling (one time for squeezing, one time for enlarging: 40% tot)
+                    rescalationExecutionTime = this.configuration.rotationDuration * 0.2, // 20% of animation time is for rescaling (one time for squeezing, one time for enlarging: 40% tot)
                     rescalationTargetScale, // scale dimension after rescalation
                     rescalationAmount, // dimension of rescalation (initialScale - rescalationTargetScale)
                     rescalationMultiplier, rescalationCurrentValue, previousScale,
 
-                    turnsExecutionTime = _configuration.rotationDuration * 0.6, // 60% of animation time is for rotation
+                    turnsExecutionTime = this.configuration.rotationDuration * 0.6, // 60% of animation time is for rotation
                     turnsTargetRotation, // inclination after rotation
                     turnsAmount, // degrees of rotation
                     turnsMultiplier, turnsCurrentValue, turnsPreviousValue,
@@ -1435,33 +751,33 @@
                     boardStartingSection, boardDestinationSection, // vars for board rotation
                     elementTurnsAmount, elementMultiplier; // vars for elements rotation
 
-                return function (event) {
+                return (function (event) {
 
                     if (createjs.Ticker.getPaused()) {
                         return;
                     }
 
-                    if (_update) {
-                        _update = false;
-                        _stage.update();
+                    if (this.update) {
+                        this.update = false;
+                        this.stage.update();
                     }
 
-                    if (_rotationDegrees) { // if there is a property with degrees of rotation then rotate the board
+                    if (this.rotationDegrees) { // if there is a property with degrees of rotation then rotate the board
 
                         if (!squeezedBoard || enlargeBoard) { // do rescalation
 
                             if (squeezeFirstTick) {
-                                rescalationTargetScale = _configuration.squeezeScaleFactor;
+                                rescalationTargetScale = this.configuration.squeezeScaleFactor;
                             }
 
                             if (enlargeFirstTick) {
-                                rescalationTargetScale = previousScale / _stage.scaleX; // TODO or calc max dim if board exceed canvas size due to rotation angle
+                                rescalationTargetScale = previousScale / this.stage.scaleX; // TODO or calc max dim if board exceed canvas size due to rotation angle
                             }
 
                             if (squeezeFirstTick || enlargeFirstTick) { // initialization of squeezing
                                 rescalationCurrentValue = 0;
-                                previousScale = _stage.scaleX;
-                                rescalationAmount = _stage.scaleX * rescalationTargetScale - _stage.scaleX;
+                                previousScale = this.stage.scaleX;
+                                rescalationAmount = this.stage.scaleX * rescalationTargetScale - this.stage.scaleX;
                                 rescalationMultiplier = rescalationAmount / rescalationExecutionTime;
                                 squeezeFirstTick = false; // condition to stop initialization
                                 enlargeFirstTick = false; // condition to stop initialization
@@ -1469,7 +785,7 @@
 
                             if (Math.abs(rescalationCurrentValue) >= Math.abs(rescalationAmount)) { // stop rescalation
 
-                                _stage.scaleX = _stage.scaleY = previousScale * rescalationTargetScale; // set exact value
+                                this.stage.scaleX = this.stage.scaleY = previousScale * rescalationTargetScale; // set exact value
 
                                 if (!squeezedBoard) {
                                     squeezedBoard = true; // stop squeezing condition
@@ -1481,13 +797,13 @@
                                     enlargeBoard = false; // stop enlarging condition
                                     squeezedBoard = false; // next step condition
                                     squeezeFirstTick = true; // next step condition
-                                    _rotationDegrees = 0; // stop all rotation process
+                                    this.rotationDegrees = 0; // stop all rotation process
                                 }
 
                             } else { // rescale
                                 var amountForThisStep = event.delta * rescalationMultiplier;
                                 rescalationCurrentValue += amountForThisStep;
-                                _stage.scaleX = _stage.scaleY += amountForThisStep;
+                                this.stage.scaleX = this.stage.scaleY += amountForThisStep;
                             }
                         }
 
@@ -1495,8 +811,8 @@
                             if (turnsFirstTick) {
                                 // initialization of turning
                                 turnsCurrentValue = 0;
-                                turnsPreviousValue = _stage.rotation;
-                                turnsAmount = _rotationDegrees;
+                                turnsPreviousValue = this.stage.rotation;
+                                turnsAmount = this.rotationDegrees;
                                 turnsTargetRotation = (((turnsAmount + turnsPreviousValue) % 360) + 360) % 360; // to make destination in [0, 360] regardless of dimensions of turnsAmount and turnsPreviousValue
                                 turnsMultiplier = turnsAmount / turnsExecutionTime;
 
@@ -1522,8 +838,8 @@
 
                                 elementTurnsAmount = ((elementRotation % 360) + 360) % 360; // for negative numbers
 
-                                for (var i = 0; i < _containersToRotate.length; i++) {
-                                    var container = _containersToRotate[i];
+                                for (var i = 0; i < this.containersToRotate.length; i++) {
+                                    var container = this.containersToRotate[i];
                                     for (var j = 0; j < container.getNumChildren(); j++) {
                                         var element = container.getChildAt(j);
                                         element.elementPreviousRotation = element.rotation;
@@ -1536,10 +852,10 @@
                             if (turnsCurrentValue >= Math.abs(turnsAmount)) { // stop rotation
 
                                 // set exact value
-                                _stage.rotation = turnsTargetRotation;
+                                this.stage.rotation = turnsTargetRotation;
 
-                                for (var i = 0; i < _containersToRotate.length; i++) {
-                                    var container = _containersToRotate[i];
+                                for (var i = 0; i < this.containersToRotate.length; i++) {
+                                    var container = this.containersToRotate[i];
                                     for (var j = 0; j < container.getNumChildren(); j++) {
                                         var element = container.getChildAt(j);
                                         element.rotation = (element.elementPreviousRotation + elementTurnsAmount) % 360;
@@ -1556,10 +872,10 @@
                                 var amountForThisStep = (event.delta * turnsMultiplier) % 360;
 
                                 turnsCurrentValue += Math.abs(amountForThisStep);
-                                _stage.rotation += amountForThisStep;
+                                this.stage.rotation += amountForThisStep;
 
-                                for (var i = 0; i < _containersToRotate.length; i++) {
-                                    var container = _containersToRotate[i];
+                                for (var i = 0; i < this.containersToRotate.length; i++) {
+                                    var container = this.containersToRotate[i];
                                     for (var j = 0; j < container.getNumChildren(); j++) {
                                         var element = container.getChildAt(j);
                                         amountForThisStep = event.delta * elementMultiplier;
@@ -1569,48 +885,48 @@
                             }
                         }
 
-                        _update = true;
+                        this.update = true;
                     }
 
-                    if (_listOfMovements.length > 0) { // if there is a property with a list of movements then move pieces
-                        for (var i = _listOfMovements.length - 1; i >= 0; i--) {
-                            var move = _listOfMovements[i];
+                    if (this.listOfMovements.length > 0) { // if there is a property with a list of movements then move pieces
+                        for (var i = this.listOfMovements.length - 1; i >= 0; i--) {
+                            var move = this.listOfMovements[i];
 
-                            var xyCoords = _getXYCoordsFromFileRank(move.destFile, move.destRank);
+                            var xyCoords = getXYCoordsFromFileRank(move.destFile, move.destRank, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
 
                             var distX = (xyCoords.x - move.piece.x);
                             var distY = (xyCoords.y - move.piece.y);
 
-                            if (_configuration.animationOfPieces) {
-                                _listOfMovements[i].piece.x += distX * 0.2;
-                                _listOfMovements[i].piece.y += distY * 0.2;
+                            if (this.configuration.animationOfPieces) {
+                                this.listOfMovements[i].piece.x += distX * 0.2;
+                                this.listOfMovements[i].piece.y += distY * 0.2;
                             }
 
-                            if (!_configuration.animationOfPieces || (Math.abs(distY) <= 1 && Math.abs(distX) <= 1)) {
+                            if (!this.configuration.animationOfPieces || (Math.abs(distY) <= 1 && Math.abs(distX) <= 1)) {
                                 move.piece.x = xyCoords.x;
                                 move.piece.y = xyCoords.y;
 
-                                _listOfMovements.splice(i, 1);
+                                this.listOfMovements.splice(i, 1);
                             }
                         }
 
-                        _update = true;
+                        this.update = true;
                     }
 
-                };
-            })());
+                }).bind(this);
+            }).bind(this))());
             createjs.Ticker.setFPS(40);
 
-            _update = true;
+            this.update = true;
 
-            if (_configuration.position) {
-                this.setPosition(_configuration.position);
+            if (this.configuration.position) {
+                this.setPosition(this.configuration.position);
             }
 
             function setValues(configuration) {
 
-                var canvasWidth = configuration.canvasSize || configuration.canvasWidth || configuration.canvasHeight || _canvas.width;
-                var canvasHeight = configuration.canvasSize || configuration.canvasHeight || canvasWidth || _canvas.height;
+                var canvasWidth = configuration.canvasSize || configuration.canvasWidth || configuration.canvasHeight || this.canvas.width;
+                var canvasHeight = configuration.canvasSize || configuration.canvasHeight || canvasWidth || this.canvas.height;
 
                 var borderSize;
                 if (configuration.borderSize === undefined) {
@@ -1701,41 +1017,41 @@
 
                 var labelsArray = [];
 
-                var neededCharsForRow = _getNumberOfCharsInHorizontalBoardLabels();
-                var neededCharsForColumn = _getNumberOfCharsInVerticalBoardLabels();
+                var neededCharsForRow = getNumberOfCharsInHorizontalBoardLabels(this.configuration.blocksInARow);
+                var neededCharsForColumn = getNumberOfCharsInVerticalBoardLabels(this.configuration.blocksInAColumn);
 
                 var fontSize = labelSize / Math.max(neededCharsForRow, neededCharsForColumn);
 
                 if (orientation == "V") {
-                    for (var i = _configuration.blocksInAColumn; i > 0; i--) {
+                    for (var i = this.configuration.blocksInAColumn; i > 0; i--) {
                         labelsArray.push(i);
                     }
                 } else {
-                    var charsInLabel = _getNumberOfCharsInHorizontalBoardLabels();
-                    for (var i = 0; i < _configuration.blocksInARow; i++) {
+                    var charsInLabel = getNumberOfCharsInHorizontalBoardLabels(this.configuration.blocksInARow);
+                    for (var i = 0; i < this.configuration.blocksInARow; i++) {
                         var label = "";
                         for (var j = charsInLabel; j > 0; j--) {
-                            label += _hBoardLabelsAlphabet.charAt(Math.floor((i % Math.pow(_hBoardLabelsAlphabet.length, j)) / Math.pow(_hBoardLabelsAlphabet.length, j - 1)));
+                            label += H_BOARD_LABELS_ALPHABET.charAt(Math.floor((i % Math.pow(H_BOARD_LABELS_ALPHABET.length, j)) / Math.pow(H_BOARD_LABELS_ALPHABET.length, j - 1)));
                         }
                         labelsArray.push(label);
                     }
                 }
 
-                var stopCondition = orientation == "H" ? _configuration.blocksInARow : _configuration.blocksInAColumn;
+                var stopCondition = orientation == "H" ? this.configuration.blocksInARow : this.configuration.blocksInAColumn;
 
                 for (var i = 0; i < stopCondition; i++) {
 
-                    var label = new createjs.Text(labelsArray[i], fontSize + "px sans", _configuration.labelsColor);
+                    var label = new createjs.Text(labelsArray[i], fontSize + "px sans", this.configuration.labelsColor);
                     label.regX = label.getBounds().width / 2;
                     label.regY = label.getMeasuredLineHeight() / 2;
 
-                    var fixedCoord = _configuration.borderSize / 2 + _configuration.shadowSize + (orientation == "H" ? _configuration.boardPaddingHeightSize : _configuration.boardPaddingWidthSize);
-                    var floatingCoord = _configuration.borderSize + i * (_configuration.blockSize + _configuration.marginBetweenBlocksSize) + _configuration.blockSize / 2 + _configuration.shadowSize + (orientation == "H" ? _configuration.boardPaddingWidthSize : _configuration.boardPaddingHeightSize);
+                    var fixedCoord = this.configuration.borderSize / 2 + this.configuration.shadowSize + (orientation == "H" ? this.configuration.boardPaddingHeightSize : this.configuration.boardPaddingWidthSize);
+                    var floatingCoord = this.configuration.borderSize + i * (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) + this.configuration.blockSize / 2 + this.configuration.shadowSize + (orientation == "H" ? this.configuration.boardPaddingWidthSize : this.configuration.boardPaddingHeightSize);
 
                     label.x = orientation == "H" ? floatingCoord : fixedCoord;
                     label.y = orientation == "H" ? fixedCoord : floatingCoord;
 
-                    var otherSideCoord = _configuration.borderSize / 2 + (orientation == "H" ? _configuration.allBlocksHeight : _configuration.allBlocksWidth) + _configuration.borderSize + _configuration.shadowSize + (orientation == "H" ? _configuration.boardPaddingHeightSize : _configuration.boardPaddingWidthSize);
+                    var otherSideCoord = this.configuration.borderSize / 2 + (orientation == "H" ? this.configuration.allBlocksHeight : this.configuration.allBlocksWidth) + this.configuration.borderSize + this.configuration.shadowSize + (orientation == "H" ? this.configuration.boardPaddingHeightSize : this.configuration.boardPaddingWidthSize);
 
                     var clonedLabel = label.clone();
                     orientation == "H" ? clonedLabel.y = otherSideCoord : clonedLabel.x = otherSideCoord;
@@ -1747,13 +1063,13 @@
 
             function getBlockColour(columnIndex, rowIndex) {
                 var backColor;
-                if (_configuration.type == 'linesGrid') {
-                    backColor = _configuration.lightSquaresColor;
+                if (this.configuration.type == 'linesGrid') {
+                    backColor = this.configuration.lightSquaresColor;
                 } else {
                     if (rowIndex % 2)
-                        backColor = (columnIndex % 2 ? _configuration.darkSquaresColor : _configuration.lightSquaresColor);
+                        backColor = (columnIndex % 2 ? this.configuration.darkSquaresColor : this.configuration.lightSquaresColor);
                     else
-                        backColor = (columnIndex % 2 ? _configuration.lightSquaresColor : _configuration.darkSquaresColor);
+                        backColor = (columnIndex % 2 ? this.configuration.lightSquaresColor : this.configuration.darkSquaresColor);
                 }
                 return backColor;
             }
@@ -1763,59 +1079,749 @@
                 var blockGraphic = block.graphics;
 
                 blockGraphic
-                    .beginStroke(_configuration.linesColor)
-                    .setStrokeStyle(_configuration.gridLinesSize);
+                    .beginStroke(this.configuration.linesColor)
+                    .setStrokeStyle(this.configuration.gridLinesSize);
 
                 if (columnOfBlock !== 0) {
                     blockGraphic
-                        .moveTo(_configuration.blockSize / 2, _configuration.blockSize / 2)
-                        .lineTo(0, _configuration.blockSize / 2)
+                        .moveTo(this.configuration.blockSize / 2, this.configuration.blockSize / 2)
+                        .lineTo(0, this.configuration.blockSize / 2)
                 }
-                if (columnOfBlock != _configuration.blocksInARow - 1) {
+                if (columnOfBlock != this.configuration.blocksInARow - 1) {
                     blockGraphic
-                        .moveTo(_configuration.blockSize / 2, _configuration.blockSize / 2)
-                        .lineTo(_configuration.blockSize, _configuration.blockSize / 2)
+                        .moveTo(this.configuration.blockSize / 2, this.configuration.blockSize / 2)
+                        .lineTo(this.configuration.blockSize, this.configuration.blockSize / 2)
                 }
                 if (rowOfBlock !== 0) {
                     blockGraphic
-                        .moveTo(_configuration.blockSize / 2, _configuration.blockSize / 2)
-                        .lineTo(_configuration.blockSize / 2, _configuration.blockSize)
+                        .moveTo(this.configuration.blockSize / 2, this.configuration.blockSize / 2)
+                        .lineTo(this.configuration.blockSize / 2, this.configuration.blockSize)
                 }
-                if (rowOfBlock != _configuration.blocksInAColumn - 1) {
+                if (rowOfBlock != this.configuration.blocksInAColumn - 1) {
                     blockGraphic
-                        .moveTo(_configuration.blockSize / 2, _configuration.blockSize / 2)
-                        .lineTo(_configuration.blockSize / 2, 0)
+                        .moveTo(this.configuration.blockSize / 2, this.configuration.blockSize / 2)
+                        .lineTo(this.configuration.blockSize / 2, 0)
                 }
 
-                if (_configuration.goGame) {
-                    if (_configuration.blocksInARow % 2 !== 0 && columnOfBlock == Math.floor(_configuration.blocksInARow / 2) && rowOfBlock == Math.floor(_configuration.blocksInARow / 2)) {
-                        drawCircle();
+                if (this.configuration.goGame) {
+                    if (this.configuration.blocksInARow % 2 !== 0 && columnOfBlock == Math.floor(this.configuration.blocksInARow / 2) && rowOfBlock == Math.floor(this.configuration.blocksInARow / 2)) {
+                        drawCircle.call(this);
                     }
-                    if (_configuration.blocksInARow >= 9 && _configuration.blocksInARow < 13) {
-                        if (((columnOfBlock == 2) || (_configuration.blocksInARow - columnOfBlock == 3)) && ((rowOfBlock == 2) || (_configuration.blocksInARow - rowOfBlock == 3))) {
-                            drawCircle();
+                    if (this.configuration.blocksInARow >= 9 && this.configuration.blocksInARow < 13) {
+                        if (((columnOfBlock == 2) || (this.configuration.blocksInARow - columnOfBlock == 3)) && ((rowOfBlock == 2) || (this.configuration.blocksInARow - rowOfBlock == 3))) {
+                            drawCircle.call(this);
                         }
                     }
-                    if (_configuration.blocksInARow >= 13) {
-                        if (((columnOfBlock == 3) || (_configuration.blocksInARow - columnOfBlock == 4)) && ((rowOfBlock == 3) || (_configuration.blocksInARow - rowOfBlock == 4))) {
-                            drawCircle();
+                    if (this.configuration.blocksInARow >= 13) {
+                        if (((columnOfBlock == 3) || (this.configuration.blocksInARow - columnOfBlock == 4)) && ((rowOfBlock == 3) || (this.configuration.blocksInARow - rowOfBlock == 4))) {
+                            drawCircle.call(this);
                         }
                     }
-                    if (_configuration.blocksInARow >= 19) {
-                        if (((columnOfBlock == 3 || (_configuration.blocksInARow - columnOfBlock == 4)) && rowOfBlock == Math.floor(_configuration.blocksInARow / 2)) || ((rowOfBlock == 3 || (_configuration.blocksInARow - rowOfBlock == 4)) && columnOfBlock == Math.floor(_configuration.blocksInARow / 2))) {
-                            drawCircle();
+                    if (this.configuration.blocksInARow >= 19) {
+                        if (((columnOfBlock == 3 || (this.configuration.blocksInARow - columnOfBlock == 4)) && rowOfBlock == Math.floor(this.configuration.blocksInARow / 2)) || ((rowOfBlock == 3 || (this.configuration.blocksInARow - rowOfBlock == 4)) && columnOfBlock == Math.floor(this.configuration.blocksInARow / 2))) {
+                            drawCircle.call(this);
                         }
                     }
                 }
 
                 function drawCircle() {
                     blockGraphic
-                        .moveTo(_configuration.blockSize / 2, _configuration.blockSize / 2)
-                        .beginFill(_configuration.linesColor)
-                        .drawCircle(_configuration.blockSize / 2, _configuration.blockSize / 2, _configuration.gridLinesSize * 2.5);
+                        .moveTo(this.configuration.blockSize / 2, this.configuration.blockSize / 2)
+                        .beginFill(this.configuration.linesColor)
+                        .drawCircle(this.configuration.blockSize / 2, this.configuration.blockSize / 2, this.configuration.gridLinesSize * 2.5);
                 }
             }
 
         }).bind(this))();
+    }
+
+    CanvasBoard.prototype.rotate = function (degrees) {
+
+        if (degrees !== undefined && !Number.isInteger(degrees)) {
+            throw new Error("rotate: passed value is not an integer.");
+        }
+
+        this.rotationDegrees = degrees || 180;
     };
+
+    CanvasBoard.prototype.setRotation = function (degrees) {
+
+        if (degrees !== undefined && !Number.isInteger(degrees)) {
+            throw new Error("setRotation: passed value is not an integer.");
+        }
+
+        degrees = degrees || 0;
+
+        this.stage.rotation = ((degrees % 360) + 360) % 360; // to make destination in [0, 360]
+
+        var elementRotation = Math.floor(((this.stage.rotation + 45) % 360) / 90) * -90;
+
+        for (var i = 0; i < this.containersToRotate.length; i++) {
+            var container = this.containersToRotate[i];
+            for (var j = 0; j < container.getNumChildren(); j++) {
+                var element = container.getChildAt(j);
+                element.rotation = (elementRotation) % 360;
+            }
+        }
+
+        this.update = true;
+    };
+
+    CanvasBoard.prototype.scale = function (scaleFactor) {
+
+        if (scaleFactor === undefined || isNaN(scaleFactor) || scaleFactor < 0) {
+            throw new Error("scale: invalid scale parameter.");
+        }
+
+        this.canvas.width = this.configuration.canvasWidth * scaleFactor;
+        this.canvas.height = this.configuration.canvasHeight * scaleFactor;
+
+        this.stage.scaleX = this.stage.scaleY = this.stage.scale = scaleFactor;
+        this.stage.x = this.configuration.canvasWidth * scaleFactor / 2;
+        this.stage.y = this.configuration.canvasHeight * scaleFactor / 2;
+        this.update = true;
+    };
+
+    CanvasBoard.prototype.setPosition = function (position) {
+        /*
+         * gets position in FEN notation as input and sets board
+         * if no parameter is passed then clear the board
+         */
+
+        if (position == undefined || position == '') { // clean the board
+            position = "";
+            for (var i=0; i<this.configuration.blocksInAColumn; i++) {
+                if (position.length > 0) {
+                    position += "/";
+                }
+                position += this.configuration.blocksInARow;
+            }
+        }
+
+        var currentBoard = getCurrentBoard(this.piecesContainer, this.configuration.blocksInARow, this.configuration.blocksInAColumn);
+        var newBoard = getBoardFromFen(position);
+
+        if (newBoard.length != this.configuration.blocksInARow || newBoard[0].length != this.configuration.blocksInAColumn) {
+            throw new Error("setPosition: invalid input parameter.");
+        }
+
+        // temp vars for computation
+        var assignedPieces = [];
+        var listOfMovements = [];
+
+        // find pieces that yet are in the correct position
+        for (var i = 0; i < this.configuration.blocksInARow; i++) { // file (column)
+            for (var j = 0; j < this.configuration.blocksInAColumn; j++) { // rank (row)
+                if (currentBoard[i][j] && newBoard[i][j]) {
+                    for (var z = 0; z < this.piecesContainer.getNumChildren(); z++) {
+                        var piece = this.piecesContainer.getChildAt(z);
+                        if (piece.file == i && piece.rank == j) {
+                            var indexInNewBoard = newBoard[i][j].indexOf(piece.label);
+                            if (indexInNewBoard != -1 && currentBoard[i][j].indexOf(piece.label) != -1) {
+                                assignedPieces.push(piece);
+                                if (newBoard[i][j].length == 1) {
+                                    newBoard[i][j] = undefined;
+                                    break;
+                                } else {
+                                    newBoard[i][j].splice(indexInNewBoard, 1);
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+
+        // find pieces on board to move
+        for (var i = 0; i < this.configuration.blocksInARow; i++) { // file (column)
+            for (var j = 0; j < this.configuration.blocksInAColumn; j++) { // rank (row)
+                if (newBoard[i][j]) {
+                    for (var z = 0; z < this.piecesContainer.getNumChildren(); z++) {
+                        var piece = this.piecesContainer.getChildAt(z);
+                        if (assignedPieces.indexOf(piece) == -1) {
+                            var indexInNewBoard = newBoard[i][j].indexOf(piece.label);
+                            if (indexInNewBoard != -1) { // if true piece is a candidate to reach (i,j) position
+                                var distance = Math.pow((piece.file - i), 2) + Math.pow((piece.rank - j), 2);
+                                for (var k = z + 1; k < this.piecesContainer.getNumChildren(); k++) {
+                                    var alternativePiece = this.piecesContainer.getChildAt(k);
+                                    if (newBoard[i][j].indexOf(alternativePiece.label) != -1 && assignedPieces.indexOf(alternativePiece) == -1) { // search for a piece for a more consistent movement
+                                        var alternativeDistance = 0;
+
+                                        if (this.configuration.chessGame.bishopLabel && alternativePiece.label.toUpperCase() == this.configuration.chessGame.bishopLabel.toUpperCase()) {
+                                            if (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) { // found a bishop of correct square color, while current selected bishop is on a square with of not correct color
+                                                piece = alternativePiece;
+                                            } else if ((((alternativePiece.rank + alternativePiece.file) % 2 != (i + j) % 2) && ((piece.rank + piece.file) % 2 != (i + j) % 2)) || (((alternativePiece.rank + alternativePiece.file) % 2 == (i + j) % 2) && ((piece.rank + piece.file) % 2 == (i + j) % 2))) { // both bishops are on squares of same color
+                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                            }
+                                        } else if (this.configuration.chessGame.rookLabel && alternativePiece.label.toUpperCase() == this.configuration.chessGame.rookLabel.toUpperCase()) {
+                                            if ((alternativePiece.file == i || alternativePiece.rank == j) && !(piece.file == i || piece.rank == j)) { // alternative rook has correct file or rank, while current selected rook not
+                                                piece = alternativePiece;
+                                            } else { // check alternative rook by distance
+                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                            }
+                                        } else if (this.configuration.chessGame.pawnLabel && alternativePiece.label.toUpperCase() == this.configuration.chessGame.pawnLabel.toUpperCase()) {
+                                            if (alternativePiece.file == i && piece.file != i) { // alternative pawn has correct file, while current pawn not
+                                                piece = alternativePiece;
+                                            } else if ((alternativePiece.file == i && piece.file == i) || (alternativePiece.file != i && piece.file != i)) {
+                                                alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                            }
+                                        } else {
+                                            alternativeDistance = Math.pow((alternativePiece.file - i), 2) + Math.pow((alternativePiece.rank - j), 2);
+                                        }
+
+                                        if (alternativeDistance && alternativeDistance < distance) {
+                                            distance = alternativeDistance;
+                                            piece = alternativePiece;
+                                        }
+                                    }
+                                }
+
+                                assignedPieces.push(piece);
+                                listOfMovements.push([piece, getPositionLabelFromFileRank(i, j, this.configuration.blocksInARow)]);
+                                if (newBoard[i][j].length == 1) {
+                                    newBoard[i][j] = undefined;
+                                    break;
+                                } else {
+                                    newBoard[i][j].splice(indexInNewBoard, 1);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // remove pieces that have no position
+        for (var i = this.piecesContainer.getNumChildren() - 1; i >= 0; i--) {
+            var piece = this.piecesContainer.getChildAt(i);
+            if (assignedPieces.indexOf(piece) == -1) {
+                this.removePiece(piece);
+            }
+        }
+
+        // add missing pieces
+        var xStarting, yStarting;
+        if (this.piecesContainer.getNumChildren() == 0 && this.configuration.animationOfPieces) { // if board is empty and animation is active then movements of new position start from center of board
+            xStarting = this.configuration.allBlocksWidth / 2;
+            yStarting = this.configuration.allBlocksHeight / 2;
+        }
+        for (var i = 0; i < this.configuration.blocksInARow; i++) { // file (column)
+            for (var j = 0; j < this.configuration.blocksInAColumn; j++) { // rank (row)
+                if (newBoard[i][j]) {
+                    for (var z = 0; z<newBoard[i][j].length; z++) {
+                        var promise = this.getNewPiece(newBoard[i][j][z]);
+                        promise.then(
+                            (function (file, rank, piece) {
+                                piece.x = xStarting;
+                                piece.y = yStarting;
+                                this.setPieceAtPosition(piece, getPositionLabelFromFileRank(file, rank, this.configuration.blocksInARow));
+                            }).bind(this, i, j)
+                        ).catch(function (error) {
+                            console.log(error);
+                        });
+                    }
+                }
+            }
+        }
+
+        // set pieces positions
+        this.setPieceAtPosition.apply(this, listOfMovements);
+    };
+
+    CanvasBoard.prototype.getPosition = function () {
+        /*
+         * returns board position in FEN-like notation
+         */
+
+        return getFenFromBoard(getCurrentBoard(this.piecesContainer, this.configuration.blocksInARow, this.configuration.blocksInAColumn));
+    };
+
+    CanvasBoard.prototype.move = function (/* arguments: see comment */) {
+        /*
+         * Possible inputs:
+         *   1. ("H3", "G3") // couple of position labels for single move
+         *   2. (piece, "G3") // instance of a piece and position label
+         *   3. (["H3", "G3"], [piece, "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
+         */
+
+        if (arguments.length == 2 && (isPositionLabel(arguments[0], this.configuration.blocksInARow, this.configuration.blocksInAColumn) || isPiece(arguments[0], this.piecesBox)) && isPositionLabel(arguments[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) { // method overload
+            return this.move([arguments[0], arguments[1]]);
+        }
+
+        var movements = Array.prototype.slice.call(arguments);
+
+        var movementsArrayWithPiece = [];
+        movements.forEach((function (movement) {
+
+            if (!movement) {
+                return;
+            }
+
+            var piecesAtStartingPosition, positionFrom;
+
+            if (isPiece(movement[0], this.piecesBox)) {
+                positionFrom = getPositionLabelFromFileRank(movement[0].file, movement[0].rank, this.configuration.blocksInARow);
+                piecesAtStartingPosition = [movement[0]];
+            } else if (isPositionLabel(movement[0], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+                positionFrom = movement[0];
+                piecesAtStartingPosition = this.getPieceAtPosition(positionFrom);
+                if (piecesAtStartingPosition) {
+                    if (!isArray(piecesAtStartingPosition)) {
+                        piecesAtStartingPosition = [piecesAtStartingPosition];
+                    }
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+
+            if (!isPositionLabel(movement[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+                return;
+            }
+
+            var piecesAtDestination = this.getPieceAtPosition(movement[1]);
+            if (piecesAtDestination) {
+                if (!isArray(piecesAtDestination)) {
+                    piecesAtDestination = [piecesAtDestination];
+                }
+            } else {
+                piecesAtDestination = [];
+            }
+
+            piecesAtStartingPosition.forEach((function (piece) {
+                if (this.configuration.hooks.isValidMove) {
+                    var isValidMove = this.configuration.hooks.isValidMove.call(this, positionFrom, movement[1], piece, piecesAtDestination);
+                    if (isValidMove == true) {
+                        movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
+                    } else if (isValidMove != false && isValidMove !=  undefined) {
+                        throw new Error(".isValidMove: invalid hook function.")
+                    }
+                } else {
+                    movementsArrayWithPiece.push([positionFrom, movement[1], piece, piecesAtDestination]);
+                }
+            }).bind(this));
+
+        }).bind(this));
+
+        var movementsOccurred = false;
+
+        movementsArrayWithPiece.forEach((function(movement) {
+
+            var preMoveReturned;
+            if (this.configuration.hooks.preMove) {
+                preMoveReturned = this.configuration.hooks.preMove.call(this, movement[0], movement[1], movement[2], movement[3]); // positionFrom, positionTo, pieceFrom, piecesTo
+            }
+            this.piecesContainer.removeChild(movement[2]);
+            this.piecesContainer.addChild(movement[2]);
+            var moved = this.setPieceAtPosition(movement[2], movement[1]);
+            if (this.configuration.hooks.postMove) {
+                this.configuration.hooks.postMove.call(this, movement[0], movement[1], movement[2], movement[3], preMoveReturned, moved);
+            }
+
+            movementsOccurred = moved || movementsOccurred;
+        }).bind(this));
+
+        return movementsOccurred;
+    };
+
+    CanvasBoard.prototype.setPieceAtPosition = function (/* arguments: see comment */) {
+        /*
+         * Possible inputs:
+         *   1. (piece, "H7") // instance of piece and position label of destination
+         *   2. ([piece1, "H7"], [piece2, "G3"], .....) // list of arrays of two elements (as above) for multiple moves simultaneously
+         */
+
+        if (arguments.length == 2 && isPiece(arguments[0], this.piecesBox) && isPositionLabel(arguments[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) { // method overload
+            return this.setPieceAtPosition([arguments[0], arguments[1]]);
+        }
+
+        var movements = Array.prototype.slice.call(arguments);
+
+        var movementsList = [];
+
+        var thereArePiecesToMove = false;
+
+        movements.forEach((function (movement) {
+
+            if (!isPiece(movement[0], this.piecesBox) || !isPositionLabel(movement[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+                return;
+            }
+
+            var piece = movement[0];
+            var position = movement[1];
+
+            var numericPosition = getFileRankFromPositionLabel(position, this.configuration.blocksInARow);
+            var file = numericPosition.file;
+            var rank = numericPosition.rank;
+
+            if (!this.piecesContainer.contains(piece)) {
+                if (!piece.x || !piece.y) { // a new piece (with no x,y coords) is immediately placed in the position without movement
+                    var xyCoords = getXYCoordsFromFileRank(file, rank, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                    piece.x = xyCoords.x;
+                    piece.y = xyCoords.y;
+                }
+                this.piecesContainer.addChild(piece);
+            }
+
+            var yetMoving = false;
+            for (var i = 0; i < this.listOfMovements.length; i++) {
+                var move = this.listOfMovements[i];
+                if (move.piece == piece) {
+                    move.destFile = file;
+                    move.destRank = rank;
+                    yetMoving = true;
+                    break;
+                }
+            }
+
+            if (!yetMoving) {
+                movementsList.push({
+                    piece: piece,
+                    destFile: file,
+                    destRank: rank
+                });
+            }
+
+            piece.file = file;
+            piece.rank = rank;
+
+            thereArePiecesToMove = true;
+
+        }).bind(this));
+
+        if (!thereArePiecesToMove) {
+            return false;
+        } else {
+            this.listOfMovements = this.listOfMovements.concat(movementsList);
+            return true;
+        }
+    };
+
+    CanvasBoard.prototype.getPieceAtPosition = function (position) {
+        /*
+         * returns  - array of pieces on position passed as parameter
+         *          - or single piece if there is only one piece on position
+         *          - undefined if no piece is in position
+         */
+
+        if (!isPositionLabel(position, this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+            throw new Error("getPieceAtPosition: invalid position.")
+        }
+
+        var numericPosition = getFileRankFromPositionLabel(position, this.configuration.blocksInARow);
+
+        var file = numericPosition.file;
+        var rank = numericPosition.rank;
+
+        var piecesOnPosition = [];
+
+        for (var i = this.piecesContainer.getNumChildren()-1; i >= 0; i--) {
+            var piece = this.piecesContainer.getChildAt(i);
+            if (piece.file == file && piece.rank == rank) {
+                piecesOnPosition.push(piece);
+            }
+        }
+
+        return piecesOnPosition.length == 0 ? undefined :
+            piecesOnPosition.length == 1 ? piecesOnPosition[0] :
+                piecesOnPosition;
+    };
+
+    CanvasBoard.prototype.removePieceFromPosition = function (position) {
+        // remove all pieces from position passed as parameter
+
+        if (!isPositionLabel(position, this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+            throw new Error("removePieceFromPosition: invalid position.")
+        }
+
+        var pieces = this.getPieceAtPosition(position);
+
+        if (!pieces) {
+            return false;
+        }
+
+        if (!isArray(pieces)) {
+            pieces = [pieces];
+        }
+
+        pieces.forEach((function (piece) {
+            this.piecesContainer.removeChild(piece);
+        }).bind(this));
+
+        this.update = true;
+
+        return true;
+    };
+
+    CanvasBoard.prototype.removePiece = function (piece) {
+
+        if (!isPiece(piece, this.piecesBox)) {
+            throw new Error("removePiece: invalid input parameter.")
+        }
+
+        if (this.piecesContainer.contains(piece)) {
+            this.piecesContainer.removeChild(piece);
+            this.update = true;
+            return true;
+        }
+
+        return false;
+    };
+
+    CanvasBoard.prototype.getNewPiece = function (pieceLabel) { // input: label of piece
+        /*
+         * async function that returns a promise!
+         *
+         * Use:
+         *  var promise = myBoard.getNewPiece("p");
+         *  promise.then(function(requestedPiece) {
+         *       // piece handling
+         *  }).catch(function(errorGettingPiece) {
+         *       // error handling
+         *  });
+         *
+         *  .then() chaining and .catch() chaining is supported
+         */
+
+        var deferred = customQ.defer();
+
+        var promise = createPiece(pieceLabel, this.loadingPieces, this.piecesBox, this.configuration.piecesFolder, this.configuration.piecesFiles);
+
+        promise.then((function (piece) {
+
+            var piece = new createjs.Bitmap(piece);
+            piece.label = pieceLabel;
+            piece.regX = piece.regY = this.piecesBox[pieceLabel].width / 2;
+            piece.scaleX = piece.scaleY = piece.scale = (this.configuration.blockSize * 0.9) / this.piecesBox[pieceLabel].width;
+
+            piece.x = undefined;
+            piece.y = undefined;
+
+            var boardSection = Math.floor(((this.stage.rotation + 45) % 360) / 90);
+            piece.rotation = boardSection * -90;
+
+            if (this.configuration.actionsOnPieces) {
+
+                piece.cursor = "pointer";
+                piece.hitArea = new createjs.Shape();
+                piece.hitArea.graphics.beginFill("#000")
+                    .drawRect(0, 0, this.piecesBox[pieceLabel].width, this.piecesBox[pieceLabel].height);
+
+                piece.addEventListener("rollover", (function (evt) {
+                    if (!this.selectedPiece) {
+                        var piece = evt.target;
+                        piece.scaleX = piece.scaleY = piece.scale * 1.25;
+                        piece.shadow = new createjs.Shadow(this.configuration.shadowColor, 3, 3, 5);
+                        this.update = true;
+                    } else {
+                        this.stage.getChildByName("boardContainer").removeChild(this.stage.getChildByName("boardContainer").getChildByName("blockHighlighter"));
+                        var pt = this.stage.getChildByName("boardContainer").globalToLocal(evt.stageX, evt.stageY);
+                        var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                        var blockHighlighter = new createjs.Shape();
+                        blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
+                            .setStrokeStyle(this.configuration.highlighterSize)
+                            .drawRect(
+                                (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * numericPosition.file + this.configuration.highlighterSize / 2,
+                                (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * (this.configuration.blocksInAColumn - numericPosition.rank - 1) + this.configuration.highlighterSize / 2,
+                                this.configuration.blockSize - this.configuration.highlighterSize,
+                                this.configuration.blockSize - this.configuration.highlighterSize);
+                        blockHighlighter.name = "blockHighlighter";
+                        this.stage.getChildByName("boardContainer").addChildAt(blockHighlighter, this.stage.getChildByName("boardContainer").getNumChildren() - 1);
+                        this.update = true;
+                    }
+                }).bind(this));
+
+                piece.addEventListener("rollout", (function (evt) {
+                    if (!this.selectedPiece) {
+                        var piece = evt.target;
+                        piece.scaleX = piece.scaleY = piece.scale;
+                        piece.shadow = null;
+                        this.update = true;
+                    } else {
+                        this.stage.getChildByName("boardContainer").removeChild(this.stage.getChildByName("boardContainer").getChildByName("blockHighlighter"));
+                        this.update = true;
+                    }
+                }).bind(this));
+
+                piece.addEventListener("mousedown", (function (evt) {
+                    var piece = evt.target;
+
+                    for (var i = 0; i < this.listOfMovements.length; i++) {
+                        if (this.listOfMovements[i].piece == piece) {
+                            this.listOfMovements.splice(i,1);
+                            break;
+                        }
+                    }
+
+                    var xyCoords = {};
+                    if (piece.file != undefined && piece.rank != undefined) {
+                        xyCoords = getXYCoordsFromFileRank(piece.file, piece.rank, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                    }
+                    piece.startPosition = {
+                        x: xyCoords.x || piece.x,
+                        y: xyCoords.y || piece.y
+                    };
+                    if (!this.selectedPiece) {
+                        var boardContainer = this.stage.getChildByName("boardContainer");
+                        var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+
+                        this.piecesContainer.removeChild(piece);
+                        this.piecesContainer.addChild(piece);
+
+                        piece.x = pt.x;
+                        piece.y = pt.y;
+
+                        this.update = true;
+                    }
+                }).bind(this));
+
+                piece.addEventListener("pressmove", (function (evt) {
+                    var piece = evt.target;
+                    var boardContainer = this.stage.getChildByName("boardContainer");
+                    var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+
+                    if (this.selectedPiece) {
+                        boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+                        this.selectedPiece.scaleX = this.selectedPiece.scaleY = this.selectedPiece.scale;
+                        this.selectedPiece.shadow = null;
+                        this.selectedPiece = undefined;
+
+                        piece.scaleX = piece.scaleY = piece.scale * 1.25;
+                        piece.shadow = new createjs.Shadow(this.configuration.shadowColor, 3, 3, 5);
+
+                        this.piecesContainer.removeChild(piece);
+                        this.piecesContainer.addChild(piece);
+
+                        piece.x = pt.x;
+                        piece.y = pt.y;
+
+                        this.update = true;
+                    }
+
+                    var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+
+                    var file = numericPosition.file;
+                    var rank = numericPosition.rank;
+
+                    piece.x = pt.x;
+                    piece.y = pt.y;
+
+                    var currentSquare = undefined;
+                    if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInAColumn) {
+                        currentSquare = file + this.configuration.blocksInARow * rank;
+                    }
+
+                    if (currentSquare != piece.currentSquare) {
+                        boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+                        piece.currentSquare = currentSquare;
+                        if (currentSquare != undefined) {
+                            if (this.configuration.type == 'linesGrid') { // add an highlighter circle at cross of lines
+                                var blockHighlighter = new createjs.Shape();
+                                blockHighlighter.alpha = 0.8;
+                                blockHighlighter.graphics
+                                    .beginFill(this.configuration.highlighterColor)
+                                    .drawCircle(
+                                        (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * (piece.currentSquare % this.configuration.blocksInARow) + this.configuration.blockSize / 2,
+                                        (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * (this.configuration.blocksInAColumn - Math.floor(piece.currentSquare / this.configuration.blocksInARow) - 1) + this.configuration.blockSize / 2,
+                                        this.configuration.highlighterSize * 2.5);
+
+                                blockHighlighter.name = "blockHighlighter";
+                            } else { // add an highlighter border to block
+                                var blockHighlighter = new createjs.Shape();
+                                blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
+                                    .setStrokeStyle(this.configuration.highlighterSize)
+                                    .drawRect(
+                                        (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * file + this.configuration.highlighterSize / 2,
+                                        (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * (this.configuration.blocksInAColumn - rank - 1) + this.configuration.highlighterSize / 2,
+                                        this.configuration.blockSize - this.configuration.highlighterSize,
+                                        this.configuration.blockSize - this.configuration.highlighterSize);
+                                blockHighlighter.name = "blockHighlighter";
+                            }
+
+                            boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren()-1);
+                        }
+                    }
+
+                    this.update = true;
+                }).bind(this));
+
+                piece.addEventListener("pressup", (function (evt) {
+                    var piece = evt.target;
+                    var boardContainer = this.stage.getChildByName("boardContainer");
+                    var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
+
+                    var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+
+                    var file = numericPosition.file;
+                    var rank = numericPosition.rank;
+
+                    boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
+
+                    var currentSquare = undefined; // block where mouse released
+                    if (file >= 0 && file < this.configuration.blocksInARow && rank >= 0 && rank < this.configuration.blocksInAColumn) {
+                        currentSquare = file + this.configuration.blocksInARow * rank;
+                    }
+
+                    if (currentSquare == undefined) { // release click outside board
+                        piece.x = piece.startPosition.x;
+                        piece.y = piece.startPosition.y;
+                        this.update = true;
+                    } else {
+                        if (currentSquare != piece.file + this.configuration.blocksInARow * piece.rank) { // released on different block where piece was
+                            var destPosition = getPositionLabelFromFileRank(file, rank, this.configuration.blocksInARow);
+                            var moved = this.move(piece, destPosition);
+
+                            if (!moved) {
+                                piece.x = piece.startPosition.x;
+                                piece.y = piece.startPosition.y;
+                                this.update = true;
+                            }
+                        } else {
+                            if (!this.selectedPiece) {
+                                this.selectedPiece = piece;
+                                var blockHighlighter = new createjs.Shape();
+                                blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
+                                    .setStrokeStyle(this.configuration.highlighterSize)
+                                    .drawRect(
+                                        (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * file + this.configuration.highlighterSize / 2,
+                                        (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) * (this.configuration.blocksInAColumn - rank - 1) + this.configuration.highlighterSize / 2,
+                                        this.configuration.blockSize - this.configuration.highlighterSize,
+                                        this.configuration.blockSize - this.configuration.highlighterSize);
+                                blockHighlighter.name = "blockHighlighter";
+                                boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren() - 1);
+                            } else {
+                                if (piece != this.selectedPiece) {
+                                    var destPosition = getPositionLabelFromFileRank(file, rank, this.configuration.blocksInARow);
+                                    var moved = this.move(this.selectedPiece, destPosition);
+                                    if (!moved) {
+                                        this.selectedPiece.x = this.selectedPiece.startPosition.x;
+                                        this.selectedPiece.y = this.selectedPiece.startPosition.y;
+                                    }
+                                }
+                                this.selectedPiece.scaleX = this.selectedPiece.scaleY = this.selectedPiece.scale;
+                                this.selectedPiece.shadow = null;
+                                this.selectedPiece = undefined;
+                            }
+
+                            piece.x = piece.startPosition.x;
+                            piece.y = piece.startPosition.y;
+                            this.update = true;
+                        }
+                    }
+                }).bind(this));
+            }
+
+            deferred.resolve(piece);
+
+        }).bind(this)).catch(function (error) {
+            deferred.reject(error);
+        });
+
+        return deferred.promise;
+    };
+
+    return CanvasBoard;
+    
 });
