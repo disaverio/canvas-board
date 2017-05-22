@@ -147,351 +147,6 @@
         }
     };
 
-    function _getNumberOfChars(numberOfElements, numberOfSymbols) {
-        return Math.ceil(Math.log(numberOfElements) / Math.log(numberOfSymbols));
-    }
-
-    function getNumberOfCharsInHorizontalBoardLabels(blocksInARow) {
-        return _getNumberOfChars(blocksInARow, H_BOARD_LABELS_ALPHABET.length) || 1;
-    }
-
-    function getNumberOfCharsInVerticalBoardLabels(blocksInAColumn) {
-        return _getNumberOfChars(blocksInAColumn, 10) || 1;
-    }
-
-    function getFileRankFromPositionLabel(positionLabel, blocksInARow) {
-
-        var charsInHorizontalLabel = getNumberOfCharsInHorizontalBoardLabels(blocksInARow);
-        var fileLabel = positionLabel.substr(0, charsInHorizontalLabel);
-        var rankLabel = positionLabel.substr(charsInHorizontalLabel);
-
-        var file = 0;
-        for (var i = 0; i < charsInHorizontalLabel; i++) {
-            file += H_BOARD_LABELS_ALPHABET.indexOf(fileLabel.charAt(i)) * Math.pow(H_BOARD_LABELS_ALPHABET.length, charsInHorizontalLabel - (i + 1));
-        }
-        var rank = rankLabel - 1;
-
-        return {
-            file: file,
-            rank: rank
-        };
-    }
-
-    function getPositionLabelFromFileRank(file, rank, blocksInARow) {
-
-        var charsInLabel = getNumberOfCharsInHorizontalBoardLabels(blocksInARow);
-        var label = "";
-        for (var j = charsInLabel; j > 0; j--) {
-            label += H_BOARD_LABELS_ALPHABET.charAt(Math.floor((file % Math.pow(H_BOARD_LABELS_ALPHABET.length, j)) / Math.pow(H_BOARD_LABELS_ALPHABET.length, j - 1)));
-        }
-
-        label += (rank + 1);
-
-        return label;
-    }
-
-    function getXYCoordsFromFileRank(file, rank, blocksInAColumn, blockSize, marginBetweenBlocksSize) {
-        return {
-            x: file * (blockSize + marginBetweenBlocksSize) + blockSize / 2,
-            y: (blocksInAColumn - rank - 1) * (blockSize + marginBetweenBlocksSize) + blockSize / 2 // the coord y==0 is at the top, but row 0 is at the bottom
-        };
-    }
-
-    function getFileRankFromXYCoords(x, y, blocksInAColumn, blockSize, marginBetweenBlocksSize) {
-        return {
-            file: Math.floor((x + (marginBetweenBlocksSize / 2)) / (blockSize + marginBetweenBlocksSize)),
-            rank: blocksInAColumn - Math.floor((y + (marginBetweenBlocksSize / 2)) / (blockSize + marginBetweenBlocksSize)) - 1
-        };
-    }
-
-    function isPositionLabel(string, blocksInARow, blocksInAColumn) {//SI
-        /*
-         * check if passed param is a valid position label
-         */
-
-        if (typeof string !== 'string') {
-            return false;
-        }
-
-        var charsInHorizontalLabel = getNumberOfCharsInHorizontalBoardLabels(blocksInARow);
-
-        var fileLabel = string.substr(0, charsInHorizontalLabel);
-        var file = 0;
-        for (var i = 0; i < charsInHorizontalLabel; i++) {
-            var charIndex = H_BOARD_LABELS_ALPHABET.indexOf(fileLabel.charAt(i));
-            if (charIndex < 0) {
-                return false;
-            }
-            file += charIndex * Math.pow(H_BOARD_LABELS_ALPHABET.length, charsInHorizontalLabel - (i + 1));
-        }
-        if (file >= blocksInARow) {
-            return false;
-        }
-
-        var rankLabel = string.substr(charsInHorizontalLabel);
-        if (!Number.isInteger(parseInt(rankLabel, 10)) || parseInt(rankLabel, 10) < 1 || parseInt(rankLabel, 10) > blocksInAColumn) {
-            return false;
-        }
-
-        return true;
-    }
-
-    function isArray(object) {
-        if (Array.isArray)
-            return Array.isArray(object);
-
-        return typeof object !== 'undefined' && object && object.constructor === Array;
-    }
-
-    function isPiece(object, piecesBox) {
-        if (typeof object === 'object' && object.label && piecesBox[object.label]) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    function getCurrentBoard(piecesContainer, blocksInARow, blocksInAColumn) {
-        /*
-         * returns: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
-         *          If a position has no pieces the corresponding element is undefined.
-         */
-
-        var currentBoard = [];
-        for (var i = 0; i < blocksInARow; i++) { // add an array for each column
-            var col = [];
-            for (var j = 0; j < blocksInAColumn; j++) { // add an undefined element for each row of column
-                col.push(undefined);
-            }
-            currentBoard.push(col);
-        }
-        for (var i = 0; i < piecesContainer.getNumChildren(); i++) {
-            var piece = piecesContainer.getChildAt(i);
-            if (piece.rank != undefined && piece.file != undefined) {
-                if (!currentBoard[piece.file][piece.rank]) {
-                    currentBoard[piece.file][piece.rank] = [];
-                }
-                currentBoard[piece.file][piece.rank].push(piece.label);
-            }
-        }
-
-        return currentBoard;
-    }
-
-    function getFenFromBoard(board) {
-        /*
-         * input: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
-         *        If a position has no pieces the corresponding element can be undefined or can be an empty array.
-         * output: fen-like string that describes position.
-         */
-
-        if (!isArray(board)) {
-            throw new Error("getFenFromBoard: invalid input parameter");
-        }
-
-        var numberOfColumns = board.length;
-        var numberOfRows;
-        for(var i = 0; i < numberOfColumns; i++) {
-            if (!isArray(board[i])) {
-                throw new Error("getFenFromBoard: invalid input parameter");
-            }
-            if (i == 0) {
-                numberOfRows = board[i].length;
-            } else {
-                if (numberOfRows != board[i].length) {
-                    throw new Error("getFenFromBoard: invalid input parameter");
-                }
-            }
-            for(var j = 0; j < numberOfRows; j++) {
-                if (board[i][j] != undefined && !isArray(board[i][j])) {
-                    throw new Error("getFenFromBoard: invalid input parameter");
-                }
-            }
-        }
-        if (!numberOfRows) {
-            throw new Error("getFenFromBoard: invalid input parameter");
-        }
-
-        var fen = '';
-        for (var i = numberOfRows - 1; i >= 0; i--) {
-            if (i != numberOfRows - 1) {
-                fen += '/';
-            }
-            var temp = 0;
-            for (var j = 0; j < numberOfColumns; j++) {
-                if (board[j][i] && board[j][i].length > 0) {
-                    if (temp > 0) {
-                        fen += temp;
-                        temp = 0;
-                    }
-                    if (board[j][i].length == 1) {
-                        fen += board[j][i][0];
-                    } else {
-                        fen += "[";
-                        for (var k = 0; k < board[j][i].length; k++) {
-                            fen += board[j][i][k];
-                        }
-                        fen += "]";
-                    }
-                } else {
-                    temp++;
-                }
-            }
-            if (temp > 0) {
-                fen += temp;
-            }
-        }
-
-        return fen;
-    }
-
-    function getBoardFromFen(fenPosition) {
-        /*
-         * input: fen-like string that describes position.
-         * output: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
-         *         If a position has no pieces the corresponding element is undefined.
-         */
-
-        var rows = fenPosition.split("/");
-
-        var numberOfRows = rows.length;
-        var numberOfColumns;
-        for(var i = 0; i < numberOfRows; i++) {
-            if (i == 0) {
-                numberOfColumns = getRowLength(rows[i]);
-            } else {
-                if (numberOfColumns != getRowLength(rows[i])) {
-                    throw new Error("getBoardFromFen: invalid input parameter");
-                }
-            }
-        }
-
-        var newBoard = [];
-        for (var i = 0; i < numberOfColumns; i++) { // add an array for each column
-            var col = [];
-            for (var j = 0; j < numberOfRows; j++) { // add an undefined element for each row of column
-                col.push(undefined);
-            }
-            newBoard.push(col);
-        }
-        for (var i = 0; i < numberOfRows; i++) {
-            var temp = 0;
-            for (var j = 0; j < rows[i].length;) {
-                if (isNaN(rows[i][j])) {
-                    var piecesOnBlock = [];
-
-                    if (rows[i][j] == "[") {
-                        j++;
-                        while (rows[i][j] != "]") {
-                            piecesOnBlock.push(rows[i][j]);
-                            j++;
-                        }
-                        j++;
-                    } else {
-                        piecesOnBlock.push(rows[i][j]);
-                        j++;
-                    }
-
-                    newBoard[temp][numberOfRows-i-1] = piecesOnBlock;
-                    temp++;
-                } else {
-                    for (var z = 1; z + j < rows[i].length; z++) { // calc chars length of number
-                        if (isNaN(rows[i][j + z])) {
-                            break;
-                        }
-                    }
-                    var lengthOfNumber = z;
-                    var number = rows[i].substr(j, lengthOfNumber);
-                    temp += parseInt(number, 10);
-                    j += lengthOfNumber;
-                }
-            }
-        }
-
-        return newBoard;
-
-        function getRowLength(row) {
-            var length = 0;
-            for (var j = 0; j < row.length;) {
-                if (isNaN(row[j])) {
-                    if (row[j] != "[") {
-                        j++;
-                    } else {
-                        var founded = false;
-                        for (var z = 1; z + j < row.length; z++) { // get length of string "[....]"
-                            if (row[j + z] == "]") {
-                                founded = true;
-                                break;
-                            }
-                        }
-                        if (!founded) {
-                            throw new Error("getBoardFromFen: invalid input parameter");
-                        }
-                        j += z + 1;
-                    }
-                    length++;
-                } else {
-                    for (var z = 1; z + j < row.length; z++) { // calc chars length of number
-                        if (isNaN(row[j + z])) {
-                            break;
-                        }
-                    }
-                    var lengthOfNumber = z;
-                    var number = row.substr(j, lengthOfNumber);
-                    length += parseInt(number, 10);
-                    j += lengthOfNumber;
-                }
-            }
-            return length;
-        }
-    }
-
-    function createPiece(pieceLabel, loadingPieces, piecesBox, piecesFolder, piecesFiles) {//SI
-
-        var deferred = customQ.defer();
-
-        if (!piecesBox[pieceLabel]) {
-            if (!loadingPieces[pieceLabel]) {
-
-                var pieceImage = new Image();
-                pieceImage.src = piecesFolder + "/" + (piecesFiles[pieceLabel] || pieceLabel) + ".png";
-
-                pieceImage.onload = function (e) {
-
-                    var loadedPiece = e.target;
-                    piecesBox[pieceLabel] = loadedPiece;
-
-                    loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
-                        deferred.resolve(loadedPiece);
-                    });
-
-                    delete loadingPieces[pieceLabel];
-                };
-
-                pieceImage.onerror = function (e) {
-
-                    loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
-                        deferred.reject("Error loading piece " + pieceLabel);
-                    });
-
-                    delete loadingPieces[pieceLabel];
-                };
-
-                loadingPieces[pieceLabel] = {
-                    piece: pieceImage,
-                    deferreds: []
-                };
-            }
-
-            loadingPieces[pieceLabel].deferreds.push(deferred);
-
-        } else {
-            deferred.resolve(piecesBox[pieceLabel]);
-        }
-
-        return deferred.promise;
-    }
-
     /**
      * @constructor
      * @param {Object} configuration {
@@ -544,6 +199,354 @@
      * }
      */
     function CanvasBoard(configuration) {
+
+        this.utils = {
+
+            _getNumberOfChars: (function(numberOfElements, numberOfSymbols) {
+                return Math.ceil(Math.log(numberOfElements) / Math.log(numberOfSymbols));
+            }).bind(this),
+
+            getNumberOfCharsInHorizontalBoardLabels: (function() { //SI
+                return this.utils._getNumberOfChars(this.configuration.blocksInARow, H_BOARD_LABELS_ALPHABET.length) || 1;
+            }).bind(this),
+
+            getNumberOfCharsInVerticalBoardLabels: (function() { //SI
+                return this.utils._getNumberOfChars(this.configuration.blocksInAColumn, 10) || 1;
+            }).bind(this),
+
+            getFileRankFromPositionLabel: (function(positionLabel) {//SI
+
+                var charsInHorizontalLabel = this.utils.getNumberOfCharsInHorizontalBoardLabels();
+                var fileLabel = positionLabel.substr(0, charsInHorizontalLabel);
+                var rankLabel = positionLabel.substr(charsInHorizontalLabel);
+
+                var file = 0;
+                for (var i = 0; i < charsInHorizontalLabel; i++) {
+                    file += H_BOARD_LABELS_ALPHABET.indexOf(fileLabel.charAt(i)) * Math.pow(H_BOARD_LABELS_ALPHABET.length, charsInHorizontalLabel - (i + 1));
+                }
+                var rank = rankLabel - 1;
+
+                return {
+                    file: file,
+                    rank: rank
+                };
+            }).bind(this),
+
+            getPositionLabelFromFileRank: (function(file, rank) {//SI
+
+                var charsInLabel = this.utils.getNumberOfCharsInHorizontalBoardLabels();
+                var label = "";
+                for (var j = charsInLabel; j > 0; j--) {
+                    label += H_BOARD_LABELS_ALPHABET.charAt(Math.floor((file % Math.pow(H_BOARD_LABELS_ALPHABET.length, j)) / Math.pow(H_BOARD_LABELS_ALPHABET.length, j - 1)));
+                }
+
+                label += (rank + 1);
+
+                return label;
+            }).bind(this),
+
+            getXYCoordsFromFileRank: (function(file, rank) {//SI
+                return {
+                    x: file * (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) + this.configuration.blockSize / 2,
+                    y: (this.configuration.blocksInAColumn - rank - 1) * (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize) + this.configuration.blockSize / 2 // the coord y==0 is at the top, but row 0 is at the bottom
+                };
+            }).bind(this),
+
+            getFileRankFromXYCoords: (function(x, y) {//SI
+                return {
+                    file: Math.floor((x + (this.configuration.marginBetweenBlocksSize / 2)) / (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize)),
+                    rank: this.configuration.blocksInAColumn - Math.floor((y + (this.configuration.marginBetweenBlocksSize / 2)) / (this.configuration.blockSize + this.configuration.marginBetweenBlocksSize)) - 1
+                };
+            }).bind(this),
+
+            isPositionLabel: (function(string) {//SI
+                /*
+                 * check if passed param is a valid position label
+                 */
+
+                if (typeof string !== 'string') {
+                    return false;
+                }
+
+                var charsInHorizontalLabel = this.utils.getNumberOfCharsInHorizontalBoardLabels();
+
+                var fileLabel = string.substr(0, charsInHorizontalLabel);
+                var file = 0;
+                for (var i = 0; i < charsInHorizontalLabel; i++) {
+                    var charIndex = H_BOARD_LABELS_ALPHABET.indexOf(fileLabel.charAt(i));
+                    if (charIndex < 0) {
+                        return false;
+                    }
+                    file += charIndex * Math.pow(H_BOARD_LABELS_ALPHABET.length, charsInHorizontalLabel - (i + 1));
+                }
+                if (file >= this.configuration.blocksInARow) {
+                    return false;
+                }
+
+                var rankLabel = string.substr(charsInHorizontalLabel);
+                if (!Number.isInteger(parseInt(rankLabel, 10)) || parseInt(rankLabel, 10) < 1 || parseInt(rankLabel, 10) > this.configuration.blocksInAColumn) {
+                    return false;
+                }
+
+                return true;
+            }).bind(this),
+
+            isArray: (function(object) {
+                if (Array.isArray)
+                    return Array.isArray(object);
+
+                return typeof object !== 'undefined' && object && object.constructor === Array;
+            }).bind(this),
+
+            isPiece: (function(object) {//SI
+                if (typeof object === 'object' && object.label && this.piecesBox[object.label]) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }).bind(this),
+
+            getCurrentBoard: (function() {//SI
+                /*
+                 * returns: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+                 *          If a position has no pieces the corresponding element is undefined.
+                 */
+
+                var currentBoard = [];
+                for (var i = 0; i < this.configuration.blocksInARow; i++) { // add an array for each column
+                    var col = [];
+                    for (var j = 0; j < this.configuration.blocksInAColumn; j++) { // add an undefined element for each row of column
+                        col.push(undefined);
+                    }
+                    currentBoard.push(col);
+                }
+                for (var i = 0; i < this.piecesContainer.getNumChildren(); i++) {
+                    var piece = this.piecesContainer.getChildAt(i);
+                    if (piece.rank != undefined && piece.file != undefined) {
+                        if (!currentBoard[piece.file][piece.rank]) {
+                            currentBoard[piece.file][piece.rank] = [];
+                        }
+                        currentBoard[piece.file][piece.rank].push(piece.label);
+                    }
+                }
+
+                return currentBoard;
+            }).bind(this),
+
+            getFenFromBoard: (function(board) {
+                /*
+                 * input: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+                 *        If a position has no pieces the corresponding element can be undefined or can be an empty array.
+                 * output: fen-like string that describes position.
+                 */
+
+                if (!this.utils.isArray(board)) {
+                    throw new Error("getFenFromBoard: invalid input parameter");
+                }
+
+                var numberOfColumns = board.length;
+                var numberOfRows;
+                for(var i = 0; i < numberOfColumns; i++) {
+                    if (!this.utils.isArray(board[i])) {
+                        throw new Error("getFenFromBoard: invalid input parameter");
+                    }
+                    if (i == 0) {
+                        numberOfRows = board[i].length;
+                    } else {
+                        if (numberOfRows != board[i].length) {
+                            throw new Error("getFenFromBoard: invalid input parameter");
+                        }
+                    }
+                    for(var j = 0; j < numberOfRows; j++) {
+                        if (board[i][j] != undefined && !this.utils.isArray(board[i][j])) {
+                            throw new Error("getFenFromBoard: invalid input parameter");
+                        }
+                    }
+                }
+                if (!numberOfRows) {
+                    throw new Error("getFenFromBoard: invalid input parameter");
+                }
+
+                var fen = '';
+                for (var i = numberOfRows - 1; i >= 0; i--) {
+                    if (i != numberOfRows - 1) {
+                        fen += '/';
+                    }
+                    var temp = 0;
+                    for (var j = 0; j < numberOfColumns; j++) {
+                        if (board[j][i] && board[j][i].length > 0) {
+                            if (temp > 0) {
+                                fen += temp;
+                                temp = 0;
+                            }
+                            if (board[j][i].length == 1) {
+                                fen += board[j][i][0];
+                            } else {
+                                fen += "[";
+                                for (var k = 0; k < board[j][i].length; k++) {
+                                    fen += board[j][i][k];
+                                }
+                                fen += "]";
+                            }
+                        } else {
+                            temp++;
+                        }
+                    }
+                    if (temp > 0) {
+                        fen += temp;
+                    }
+                }
+
+                return fen;
+            }).bind(this),
+
+            getBoardFromFen: (function(fenPosition) {
+                /*
+                 * input: fen-like string that describes position.
+                 * output: NxM matrix where N is number of columns and M number of rows. Each element of matrix is an array of pieces on that position.
+                 *         If a position has no pieces the corresponding element is undefined.
+                 */
+
+                var rows = fenPosition.split("/");
+
+                var numberOfRows = rows.length;
+                var numberOfColumns;
+                for(var i = 0; i < numberOfRows; i++) {
+                    if (i == 0) {
+                        numberOfColumns = getRowLength(rows[i]);
+                    } else {
+                        if (numberOfColumns != getRowLength(rows[i])) {
+                            throw new Error("getBoardFromFen: invalid input parameter");
+                        }
+                    }
+                }
+
+                var newBoard = [];
+                for (var i = 0; i < numberOfColumns; i++) { // add an array for each column
+                    var col = [];
+                    for (var j = 0; j < numberOfRows; j++) { // add an undefined element for each row of column
+                        col.push(undefined);
+                    }
+                    newBoard.push(col);
+                }
+                for (var i = 0; i < numberOfRows; i++) {
+                    var temp = 0;
+                    for (var j = 0; j < rows[i].length;) {
+                        if (isNaN(rows[i][j])) {
+                            var piecesOnBlock = [];
+
+                            if (rows[i][j] == "[") {
+                                j++;
+                                while (rows[i][j] != "]") {
+                                    piecesOnBlock.push(rows[i][j]);
+                                    j++;
+                                }
+                                j++;
+                            } else {
+                                piecesOnBlock.push(rows[i][j]);
+                                j++;
+                            }
+
+                            newBoard[temp][numberOfRows-i-1] = piecesOnBlock;
+                            temp++;
+                        } else {
+                            for (var z = 1; z + j < rows[i].length; z++) { // calc chars length of number
+                                if (isNaN(rows[i][j + z])) {
+                                    break;
+                                }
+                            }
+                            var lengthOfNumber = z;
+                            var number = rows[i].substr(j, lengthOfNumber);
+                            temp += parseInt(number, 10);
+                            j += lengthOfNumber;
+                        }
+                    }
+                }
+
+                return newBoard;
+
+                function getRowLength(row) {
+                    var length = 0;
+                    for (var j = 0; j < row.length;) {
+                        if (isNaN(row[j])) {
+                            if (row[j] != "[") {
+                                j++;
+                            } else {
+                                var founded = false;
+                                for (var z = 1; z + j < row.length; z++) { // get length of string "[....]"
+                                    if (row[j + z] == "]") {
+                                        founded = true;
+                                        break;
+                                    }
+                                }
+                                if (!founded) {
+                                    throw new Error("getBoardFromFen: invalid input parameter");
+                                }
+                                j += z + 1;
+                            }
+                            length++;
+                        } else {
+                            for (var z = 1; z + j < row.length; z++) { // calc chars length of number
+                                if (isNaN(row[j + z])) {
+                                    break;
+                                }
+                            }
+                            var lengthOfNumber = z;
+                            var number = row.substr(j, lengthOfNumber);
+                            length += parseInt(number, 10);
+                            j += lengthOfNumber;
+                        }
+                    }
+                    return length;
+                }
+            }).bind(this),
+
+            createPiece: (function(pieceLabel) {//SI
+
+                var deferred = customQ.defer();
+
+                if (!this.piecesBox[pieceLabel]) {
+                    if (!this.loadingPieces[pieceLabel]) {
+
+                        var pieceImage = new Image();
+                        pieceImage.src = this.configuration.piecesFolder + "/" + (this.configuration.piecesFiles[pieceLabel] || pieceLabel) + ".png";
+
+                        pieceImage.onload = (function (e) {
+
+                            var loadedPiece = e.target;
+                            this.piecesBox[pieceLabel] = loadedPiece;
+
+                            this.loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
+                                deferred.resolve(loadedPiece);
+                            });
+
+                            delete this.loadingPieces[pieceLabel];
+                        }).bind(this);
+
+                        pieceImage.onerror = function (e) {
+
+                            this.loadingPieces[pieceLabel].deferreds.forEach(function (deferred) {
+                                deferred.reject("Error loading piece " + pieceLabel);
+                            });
+
+                            delete this.loadingPieces[pieceLabel];
+                        };
+
+                        this.loadingPieces[pieceLabel] = {
+                            piece: pieceImage,
+                            deferreds: []
+                        };
+                    }
+
+                    this.loadingPieces[pieceLabel].deferreds.push(deferred);
+
+                } else {
+                    deferred.resolve(this.piecesBox[pieceLabel]);
+                }
+
+                return deferred.promise;
+            }).bind(this)
+        };
 
         // private
         this.stage;
@@ -661,7 +664,7 @@
                 var block = new createjs.Shape();
                 block.graphics.beginFill(getBlockColour.call(this, columnOfBlock, rowOfBlock)).drawRect(0, 0, this.configuration.blockSize, this.configuration.blockSize);
 
-                var xyCoord = getXYCoordsFromFileRank(columnOfBlock, rowOfBlock, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                var xyCoord = this.utils.getXYCoordsFromFileRank(columnOfBlock, rowOfBlock);
                 block.x = xyCoord.x;
                 block.y = xyCoord.y;
                 block.regY = block.regX = this.configuration.blockSize / 2;
@@ -673,7 +676,7 @@
                             var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
                             if (pt.x < 0) pt.x = 0; // easeljs bug?
                             if (pt.y < 0) pt.y = 0; // easeljs bug?
-                            var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                            var numericPosition = this.utils.getFileRankFromXYCoords(pt.x, pt.y);
                             var blockHighlighter = new createjs.Shape();
                             blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
                                 .setStrokeStyle(this.configuration.highlighterSize)
@@ -698,8 +701,8 @@
                         if (this.selectedPiece) {
                             boardContainer.removeChild(boardContainer.getChildByName("blockHighlighter"));
                             var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
-                            var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
-                            var destPosition = getPositionLabelFromFileRank(numericPosition.file, numericPosition.rank, this.configuration.blocksInARow);
+                            var numericPosition = this.utils.getFileRankFromXYCoords(pt.x, pt.y);
+                            var destPosition = this.utils.getPositionLabelFromFileRank(numericPosition.file, numericPosition.rank);
                             var moved = this.move(this.selectedPiece, destPosition);
                             if (!moved) {
                                 this.selectedPiece.x = this.selectedPiece.startPosition.x;
@@ -892,7 +895,7 @@
                         for (var i = this.listOfMovements.length - 1; i >= 0; i--) {
                             var move = this.listOfMovements[i];
 
-                            var xyCoords = getXYCoordsFromFileRank(move.destFile, move.destRank, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                            var xyCoords = this.utils.getXYCoordsFromFileRank(move.destFile, move.destRank);
 
                             var distX = (xyCoords.x - move.piece.x);
                             var distY = (xyCoords.y - move.piece.y);
@@ -1017,8 +1020,8 @@
 
                 var labelsArray = [];
 
-                var neededCharsForRow = getNumberOfCharsInHorizontalBoardLabels(this.configuration.blocksInARow);
-                var neededCharsForColumn = getNumberOfCharsInVerticalBoardLabels(this.configuration.blocksInAColumn);
+                var neededCharsForRow = this.utils.getNumberOfCharsInHorizontalBoardLabels();
+                var neededCharsForColumn = this.utils.getNumberOfCharsInVerticalBoardLabels();
 
                 var fontSize = labelSize / Math.max(neededCharsForRow, neededCharsForColumn);
 
@@ -1027,7 +1030,7 @@
                         labelsArray.push(i);
                     }
                 } else {
-                    var charsInLabel = getNumberOfCharsInHorizontalBoardLabels(this.configuration.blocksInARow);
+                    var charsInLabel = this.utils.getNumberOfCharsInHorizontalBoardLabels();
                     for (var i = 0; i < this.configuration.blocksInARow; i++) {
                         var label = "";
                         for (var j = charsInLabel; j > 0; j--) {
@@ -1198,8 +1201,8 @@
             }
         }
 
-        var currentBoard = getCurrentBoard(this.piecesContainer, this.configuration.blocksInARow, this.configuration.blocksInAColumn);
-        var newBoard = getBoardFromFen(position);
+        var currentBoard = this.utils.getCurrentBoard();
+        var newBoard = this.utils.getBoardFromFen(position);
 
         if (newBoard.length != this.configuration.blocksInARow || newBoard[0].length != this.configuration.blocksInAColumn) {
             throw new Error("setPosition: invalid input parameter.");
@@ -1278,7 +1281,7 @@
                                 }
 
                                 assignedPieces.push(piece);
-                                listOfMovements.push([piece, getPositionLabelFromFileRank(i, j, this.configuration.blocksInARow)]);
+                                listOfMovements.push([piece, this.utils.getPositionLabelFromFileRank(i, j)]);
                                 if (newBoard[i][j].length == 1) {
                                     newBoard[i][j] = undefined;
                                     break;
@@ -1315,7 +1318,7 @@
                             (function (file, rank, piece) {
                                 piece.x = xStarting;
                                 piece.y = yStarting;
-                                this.setPieceAtPosition(piece, getPositionLabelFromFileRank(file, rank, this.configuration.blocksInARow));
+                                this.setPieceAtPosition(piece, this.utils.getPositionLabelFromFileRank(file, rank));
                             }).bind(this, i, j)
                         ).catch(function (error) {
                             console.log(error);
@@ -1334,7 +1337,7 @@
          * returns board position in FEN-like notation
          */
 
-        return getFenFromBoard(getCurrentBoard(this.piecesContainer, this.configuration.blocksInARow, this.configuration.blocksInAColumn));
+        return this.utils.getFenFromBoard(getCurrentBoard());
     };
 
     CanvasBoard.prototype.move = function (/* arguments: see comment */) {
@@ -1345,7 +1348,7 @@
          *   3. (["H3", "G3"], [piece, "F7"], .....) // list of arrays of two elements for multiple moves simultaneously
          */
 
-        if (arguments.length == 2 && (isPositionLabel(arguments[0], this.configuration.blocksInARow, this.configuration.blocksInAColumn) || isPiece(arguments[0], this.piecesBox)) && isPositionLabel(arguments[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) { // method overload
+        if (arguments.length == 2 && (this.utils.isPositionLabel(arguments[0]) || this.utils.isPiece(arguments[0])) && this.utils.isPositionLabel(arguments[1])) { // method overload
             return this.move([arguments[0], arguments[1]]);
         }
 
@@ -1360,14 +1363,14 @@
 
             var piecesAtStartingPosition, positionFrom;
 
-            if (isPiece(movement[0], this.piecesBox)) {
-                positionFrom = getPositionLabelFromFileRank(movement[0].file, movement[0].rank, this.configuration.blocksInARow);
+            if (this.utils.isPiece(movement[0])) {
+                positionFrom = this.utils.getPositionLabelFromFileRank(movement[0].file, movement[0].rank);
                 piecesAtStartingPosition = [movement[0]];
-            } else if (isPositionLabel(movement[0], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+            } else if (this.utils.isPositionLabel(movement[0])) {
                 positionFrom = movement[0];
                 piecesAtStartingPosition = this.getPieceAtPosition(positionFrom);
                 if (piecesAtStartingPosition) {
-                    if (!isArray(piecesAtStartingPosition)) {
+                    if (!this.utils.isArray(piecesAtStartingPosition)) {
                         piecesAtStartingPosition = [piecesAtStartingPosition];
                     }
                 } else {
@@ -1377,13 +1380,13 @@
                 return;
             }
 
-            if (!isPositionLabel(movement[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+            if (!this.utils.isPositionLabel(movement[1])) {
                 return;
             }
 
             var piecesAtDestination = this.getPieceAtPosition(movement[1]);
             if (piecesAtDestination) {
-                if (!isArray(piecesAtDestination)) {
+                if (!this.utils.isArray(piecesAtDestination)) {
                     piecesAtDestination = [piecesAtDestination];
                 }
             } else {
@@ -1433,7 +1436,7 @@
          *   2. ([piece1, "H7"], [piece2, "G3"], .....) // list of arrays of two elements (as above) for multiple moves simultaneously
          */
 
-        if (arguments.length == 2 && isPiece(arguments[0], this.piecesBox) && isPositionLabel(arguments[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) { // method overload
+        if (arguments.length == 2 && this.utils.isPiece(arguments[0]) && this.utils.isPositionLabel(arguments[1])) { // method overload
             return this.setPieceAtPosition([arguments[0], arguments[1]]);
         }
 
@@ -1445,20 +1448,20 @@
 
         movements.forEach((function (movement) {
 
-            if (!isPiece(movement[0], this.piecesBox) || !isPositionLabel(movement[1], this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+            if (!this.utils.isPiece(movement[0]) || !this.utils.isPositionLabel(movement[1])) {
                 return;
             }
 
             var piece = movement[0];
             var position = movement[1];
 
-            var numericPosition = getFileRankFromPositionLabel(position, this.configuration.blocksInARow);
+            var numericPosition = this.utils.getFileRankFromPositionLabel(position);
             var file = numericPosition.file;
             var rank = numericPosition.rank;
 
             if (!this.piecesContainer.contains(piece)) {
                 if (!piece.x || !piece.y) { // a new piece (with no x,y coords) is immediately placed in the position without movement
-                    var xyCoords = getXYCoordsFromFileRank(file, rank, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                    var xyCoords = this.utils.getXYCoordsFromFileRank(file, rank);
                     piece.x = xyCoords.x;
                     piece.y = xyCoords.y;
                 }
@@ -1506,11 +1509,11 @@
          *          - undefined if no piece is in position
          */
 
-        if (!isPositionLabel(position, this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+        if (!this.utils.isPositionLabel(position)) {
             throw new Error("getPieceAtPosition: invalid position.")
         }
 
-        var numericPosition = getFileRankFromPositionLabel(position, this.configuration.blocksInARow);
+        var numericPosition = this.utils.getFileRankFromPositionLabel(position);
 
         var file = numericPosition.file;
         var rank = numericPosition.rank;
@@ -1532,7 +1535,7 @@
     CanvasBoard.prototype.removePieceFromPosition = function (position) {
         // remove all pieces from position passed as parameter
 
-        if (!isPositionLabel(position, this.configuration.blocksInARow, this.configuration.blocksInAColumn)) {
+        if (!this.utils.isPositionLabel(position)) {
             throw new Error("removePieceFromPosition: invalid position.")
         }
 
@@ -1542,7 +1545,7 @@
             return false;
         }
 
-        if (!isArray(pieces)) {
+        if (!this.utils.isArray(pieces)) {
             pieces = [pieces];
         }
 
@@ -1557,7 +1560,7 @@
 
     CanvasBoard.prototype.removePiece = function (piece) {
 
-        if (!isPiece(piece, this.piecesBox)) {
+        if (!this.utils.isPiece(piece)) {
             throw new Error("removePiece: invalid input parameter.")
         }
 
@@ -1587,7 +1590,7 @@
 
         var deferred = customQ.defer();
 
-        var promise = createPiece(pieceLabel, this.loadingPieces, this.piecesBox, this.configuration.piecesFolder, this.configuration.piecesFiles);
+        var promise = this.utils.createPiece(pieceLabel);
 
         promise.then((function (piece) {
 
@@ -1618,7 +1621,7 @@
                     } else {
                         this.stage.getChildByName("boardContainer").removeChild(this.stage.getChildByName("boardContainer").getChildByName("blockHighlighter"));
                         var pt = this.stage.getChildByName("boardContainer").globalToLocal(evt.stageX, evt.stageY);
-                        var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                        var numericPosition = this.utils.getFileRankFromXYCoords(pt.x, pt.y);
                         var blockHighlighter = new createjs.Shape();
                         blockHighlighter.graphics.beginStroke(this.configuration.highlighterColor)
                             .setStrokeStyle(this.configuration.highlighterSize)
@@ -1657,7 +1660,7 @@
 
                     var xyCoords = {};
                     if (piece.file != undefined && piece.rank != undefined) {
-                        xyCoords = getXYCoordsFromFileRank(piece.file, piece.rank, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                        xyCoords = this.utils.getXYCoordsFromFileRank(piece.file, piece.rank);
                     }
                     piece.startPosition = {
                         x: xyCoords.x || piece.x,
@@ -1700,7 +1703,7 @@
                         this.update = true;
                     }
 
-                    var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                    var numericPosition = this.utils.getFileRankFromXYCoords(pt.x, pt.y);
 
                     var file = numericPosition.file;
                     var rank = numericPosition.rank;
@@ -1752,7 +1755,7 @@
                     var boardContainer = this.stage.getChildByName("boardContainer");
                     var pt = boardContainer.globalToLocal(evt.stageX, evt.stageY);
 
-                    var numericPosition = getFileRankFromXYCoords(pt.x, pt.y, this.configuration.blocksInAColumn, this.configuration.blockSize, this.configuration.marginBetweenBlocksSize);
+                    var numericPosition = this.utils.getFileRankFromXYCoords(pt.x, pt.y);
 
                     var file = numericPosition.file;
                     var rank = numericPosition.rank;
@@ -1770,7 +1773,7 @@
                         this.update = true;
                     } else {
                         if (currentSquare != piece.file + this.configuration.blocksInARow * piece.rank) { // released on different block where piece was
-                            var destPosition = getPositionLabelFromFileRank(file, rank, this.configuration.blocksInARow);
+                            var destPosition = this.utils.getPositionLabelFromFileRank(file, rank);
                             var moved = this.move(piece, destPosition);
 
                             if (!moved) {
@@ -1793,7 +1796,7 @@
                                 boardContainer.addChildAt(blockHighlighter, boardContainer.getNumChildren() - 1);
                             } else {
                                 if (piece != this.selectedPiece) {
-                                    var destPosition = getPositionLabelFromFileRank(file, rank, this.configuration.blocksInARow);
+                                    var destPosition = this.utils.getPositionLabelFromFileRank(file, rank);
                                     var moved = this.move(this.selectedPiece, destPosition);
                                     if (!moved) {
                                         this.selectedPiece.x = this.selectedPiece.startPosition.x;
