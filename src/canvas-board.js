@@ -35,6 +35,7 @@
     }
 
     var H_BOARD_LABELS_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";   // alphabet for labels on horizontal board border. numeric digits are used on vertical border
+    var PIECE_ZOOM_FACTOR = 1.25;
 
     /*
      * Lightweight Q-like reimplementation of Promises basic functionalities.
@@ -1337,7 +1338,7 @@
          * returns board position in FEN-like notation
          */
 
-        return this.utils.getFenFromBoard(getCurrentBoard());
+        return this.utils.getFenFromBoard(this.utils.getCurrentBoard());
     };
 
     CanvasBoard.prototype.move = function (/* arguments: see comment */) {
@@ -1615,7 +1616,7 @@
                 piece.addEventListener("rollover", (function (evt) {
                     if (!this.selectedPiece) {
                         var piece = evt.target;
-                        piece.scaleX = piece.scaleY = piece.scale * 1.25;
+                        piece.scaleX = piece.scaleY = piece.scale * PIECE_ZOOM_FACTOR;
                         piece.shadow = new createjs.Shadow(this.configuration.shadowColor, 3, 3, 5);
                         this.update = true;
                     } else {
@@ -1691,7 +1692,7 @@
                         this.selectedPiece.shadow = null;
                         this.selectedPiece = undefined;
 
-                        piece.scaleX = piece.scaleY = piece.scale * 1.25;
+                        piece.scaleX = piece.scaleY = piece.scale * PIECE_ZOOM_FACTOR;
                         piece.shadow = new createjs.Shadow(this.configuration.shadowColor, 3, 3, 5);
 
                         this.piecesContainer.removeChild(piece);
